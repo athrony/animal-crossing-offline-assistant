@@ -155,6 +155,22 @@ def set_text_widget(widget: ScrolledText, text: str) -> None:
     widget.configure(state="disabled")
 
 
+def style_text_widget(widget: ScrolledText) -> None:
+    widget.configure(
+        bg="#251c39",
+        fg="#f5ecff",
+        insertbackground="#ffffff",
+        selectbackground="#6e56cf",
+        selectforeground="#ffffff",
+        highlightthickness=1,
+        highlightbackground="#4b3a72",
+        relief="flat",
+        padx=12,
+        pady=10,
+        borderwidth=0,
+    )
+
+
 def open_connection(db_path: Path) -> sqlite3.Connection:
     connection = sqlite3.connect(db_path)
     connection.row_factory = sqlite3.Row
@@ -392,58 +408,329 @@ class OfflineAssistantApp:
         self.poll_pattern_queue()
 
     def configure_style(self) -> None:
+        self.root.configure(bg="#140f1f")
         self.root.option_add("*Font", ("Microsoft YaHei UI", 10))
         style = ttk.Style(self.root)
-        if "vista" in style.theme_names():
-            style.theme_use("vista")
-        elif "clam" in style.theme_names():
-            style.theme_use("clam")
-        style.configure("Treeview", rowheight=28)
-        style.configure("Treeview.Heading", font=("Microsoft YaHei UI", 10, "bold"))
-        style.configure("Header.TLabel", font=("Microsoft YaHei UI", 11, "bold"))
-        style.configure("Value.TLabel", font=("Microsoft YaHei UI", 10))
-        style.configure("LargeValue.TLabel", font=("Microsoft YaHei UI", 12))
+        style.theme_use("clam")
+
+        panel = "#261d3d"
+        surface = "#30264b"
+        card = "#3b2f5c"
+        accent = "#8b5cf6"
+        accent_2 = "#38bdf8"
+        text_main = "#f5ecff"
+        text_muted = "#b7a8d9"
+        border = "#4b3a72"
+        selection = "#5b47a5"
+
+        style.configure("TFrame", background=surface)
+        style.configure("TLabel", background=surface, foreground=text_main)
+        style.configure("Shell.TFrame", background=surface)
+        style.configure("Card.TFrame", background=card)
+        style.configure("Header.TLabel", background=surface, foreground=text_main, font=("Microsoft YaHei UI", 11, "bold"))
+        style.configure("SubHeader.TLabel", background=surface, foreground=text_muted, font=("Microsoft YaHei UI", 9))
+        style.configure("Value.TLabel", background=surface, foreground=text_main, font=("Microsoft YaHei UI", 10))
+        style.configure("LargeValue.TLabel", background=surface, foreground=text_main, font=("Microsoft YaHei UI", 13, "bold"))
+        style.configure("Card.TLabelframe", background=surface, bordercolor=border, relief="solid")
+        style.configure("Card.TLabelframe.Label", background=surface, foreground=text_main, font=("Microsoft YaHei UI", 10, "bold"))
+        style.configure("SidebarNotebook", background=surface, borderwidth=0, tabmargins=[0, 0, 0, 0])
+        style.layout("SidebarNotebook.Tab", [])
+
+        style.configure(
+            "TButton",
+            background=card,
+            foreground=text_main,
+            bordercolor=border,
+            padding=(10, 7),
+        )
+        style.map("TButton", background=[("active", "#46356a"), ("pressed", "#46356a")], foreground=[("active", "#ffffff")])
+
+        style.configure(
+            "Accent.TButton",
+            background=accent,
+            foreground="#ffffff",
+            borderwidth=0,
+            focusthickness=0,
+            focuscolor=accent,
+            padding=(14, 9),
+            font=("Microsoft YaHei UI", 10, "bold"),
+        )
+        style.map("Accent.TButton", background=[("active", accent_2), ("pressed", accent_2)])
+
+        style.configure(
+            "Ghost.TButton",
+            background=card,
+            foreground=text_main,
+            bordercolor=border,
+            padding=(12, 8),
+            font=("Microsoft YaHei UI", 10),
+        )
+        style.map("Ghost.TButton", background=[("active", surface), ("pressed", surface)])
+
+        style.configure(
+            "TEntry",
+            fieldbackground=card,
+            foreground=text_main,
+            bordercolor=border,
+            insertcolor=text_main,
+            padding=8,
+        )
+        style.configure(
+            "TCombobox",
+            fieldbackground=card,
+            background=card,
+            foreground=text_main,
+            bordercolor=border,
+            arrowcolor=text_main,
+            padding=6,
+        )
+        style.map(
+            "TCombobox",
+            fieldbackground=[("readonly", card)],
+            selectbackground=[("readonly", card)],
+            selectforeground=[("readonly", text_main)],
+        )
+
+        style.configure(
+            "Dark.TEntry",
+            fieldbackground=card,
+            foreground=text_main,
+            bordercolor=border,
+            insertcolor=text_main,
+            padding=8,
+        )
+        style.configure(
+            "Dark.TCombobox",
+            fieldbackground=card,
+            background=card,
+            foreground=text_main,
+            bordercolor=border,
+            arrowcolor=text_main,
+            padding=6,
+        )
+        style.map(
+            "Dark.TCombobox",
+            fieldbackground=[("readonly", card)],
+            selectbackground=[("readonly", card)],
+            selectforeground=[("readonly", text_main)],
+        )
+
+        style.configure(
+            "Treeview",
+            background=card,
+            fieldbackground=card,
+            foreground=text_main,
+            bordercolor=border,
+            rowheight=30,
+        )
+        style.configure(
+            "Treeview.Heading",
+            background=surface,
+            foreground=text_main,
+            bordercolor=border,
+            font=("Microsoft YaHei UI", 10, "bold"),
+        )
+        style.map(
+            "Treeview",
+            background=[("selected", selection)],
+            foreground=[("selected", "#ffffff")],
+        )
+
+        style.configure(
+            "App.Treeview",
+            background=card,
+            fieldbackground=card,
+            foreground=text_main,
+            bordercolor=border,
+            rowheight=30,
+        )
+        style.configure(
+            "App.Treeview.Heading",
+            background=surface,
+            foreground=text_main,
+            bordercolor=border,
+            font=("Microsoft YaHei UI", 10, "bold"),
+        )
+        style.map(
+            "App.Treeview",
+            background=[("selected", selection)],
+            foreground=[("selected", "#ffffff")],
+        )
+        style.map("App.Treeview.Heading", background=[("active", card)])
 
     def build_ui(self) -> None:
+        self.current_page_key = "items"
+        self.page_title_var = tk.StringVar(value="?????")
+        self.page_subtitle_var = tk.StringVar(value="??????????????")
+        self.page_status_var = tk.StringVar(value="???????")
+        self.sidebar_buttons: dict[str, tk.Button] = {}
+        self.page_tabs: dict[str, ttk.Frame] = {}
+        self.page_meta = {
+            "items": ("?????", "??????????????"),
+            "encyclopedia": ("????", "????????????"),
+            "patterns": ("?????", "??????????????"),
+        }
+
         self.root.columnconfigure(0, weight=1)
-        self.root.rowconfigure(1, weight=1)
+        self.root.rowconfigure(0, weight=1)
 
-        top_frame = ttk.Frame(self.root, padding=(12, 10))
-        top_frame.grid(row=0, column=0, sticky="ew")
-        top_frame.columnconfigure(0, weight=1)
+        outer = tk.Frame(self.root, bg="#140f1f")
+        outer.grid(row=0, column=0, sticky="nsew")
+        outer.columnconfigure(0, weight=1)
+        outer.rowconfigure(0, weight=1)
 
-        ttk.Label(top_frame, text="当前数据库", style="Header.TLabel").grid(row=0, column=0, sticky="w")
-        ttk.Label(top_frame, textvariable=self.path_var, style="Value.TLabel").grid(row=1, column=0, sticky="ew", pady=(4, 0))
-        ttk.Label(top_frame, text="内置资料", style="Header.TLabel").grid(row=2, column=0, sticky="w", pady=(8, 0))
-        ttk.Label(top_frame, textvariable=self.cache_var, style="Value.TLabel").grid(row=3, column=0, sticky="ew", pady=(4, 0))
+        shell = tk.Frame(outer, bg="#2a2140", highlightthickness=1, highlightbackground="#46356a")
+        shell.grid(row=0, column=0, sticky="nsew", padx=22, pady=22)
+        shell.columnconfigure(1, weight=1)
+        shell.rowconfigure(0, weight=1)
 
-        button_frame = ttk.Frame(top_frame)
-        button_frame.grid(row=0, column=1, rowspan=4, sticky="ne", padx=(16, 0))
-        ttk.Button(button_frame, text="打开数据库", command=self.choose_database).grid(row=0, column=0, padx=(0, 8))
-        ttk.Button(button_frame, text="刷新数据库", command=self.reload_database).grid(row=0, column=1)
+        sidebar = tk.Frame(shell, bg="#211833", width=260)
+        sidebar.grid(row=0, column=0, sticky="nsw")
+        sidebar.grid_propagate(False)
+        sidebar.columnconfigure(0, weight=1)
 
-        self.notebook = ttk.Notebook(self.root)
-        self.notebook.grid(row=1, column=0, sticky="nsew", padx=12, pady=(0, 8))
+        brand = tk.Frame(sidebar, bg="#211833")
+        brand.grid(row=0, column=0, sticky="ew", padx=18, pady=(20, 14))
+        brand.columnconfigure(0, weight=1)
+        tk.Label(brand, text="ACNH", fg="#f8f2ff", bg="#211833", font=("Microsoft YaHei UI", 22, "bold")).grid(row=0, column=0, sticky="w")
+        tk.Label(brand, text="????", fg="#bcaee4", bg="#211833", font=("Microsoft YaHei UI", 11)).grid(row=1, column=0, sticky="w", pady=(2, 0))
 
-        self.items_tab = ttk.Frame(self.notebook)
-        self.encyclopedia_tab = ttk.Frame(self.notebook)
-        self.patterns_tab = ttk.Frame(self.notebook)
-        self.notebook.add(self.items_tab, text="物品对照")
-        self.notebook.add(self.encyclopedia_tab, text="离线百科")
-        self.notebook.add(self.patterns_tab, text="设计图")
+        profile = tk.Frame(sidebar, bg="#2d2344", highlightthickness=1, highlightbackground="#4a3a72")
+        profile.grid(row=1, column=0, sticky="ew", padx=18, pady=(0, 12))
+        profile.columnconfigure(0, weight=1)
+        tk.Label(profile, text="?????", fg="#f4ebff", bg="#2d2344", font=("Microsoft YaHei UI", 11, "bold")).grid(row=0, column=0, sticky="w", padx=14, pady=(12, 2))
+        tk.Label(profile, textvariable=self.path_var, fg="#bcaee4", bg="#2d2344", wraplength=208, justify="left", font=("Microsoft YaHei UI", 9)).grid(row=1, column=0, sticky="w", padx=14)
+        tk.Label(profile, textvariable=self.cache_var, fg="#8df0ff", bg="#2d2344", wraplength=208, justify="left", font=("Microsoft YaHei UI", 9)).grid(row=2, column=0, sticky="w", padx=14, pady=(8, 12))
+
+        nav = tk.Frame(sidebar, bg="#211833")
+        nav.grid(row=2, column=0, sticky="nsew", padx=12)
+        nav.columnconfigure(0, weight=1)
+        sidebar.rowconfigure(2, weight=1)
+
+        for index, (key, title) in enumerate([
+            ("items", "???"),
+            ("encyclopedia", "????"),
+            ("patterns", "???"),
+        ]):
+            button = tk.Button(
+                nav,
+                text=title,
+                anchor="w",
+                relief="flat",
+                bd=0,
+                fg="#f6edff",
+                bg="#211833",
+                activebackground="#5b47a5",
+                activeforeground="#ffffff",
+                font=("Microsoft YaHei UI", 11, "bold" if key == "items" else "normal"),
+                padx=18,
+                pady=12,
+                command=lambda page_key=key: self.show_page(page_key),
+                cursor="hand2",
+            )
+            button.grid(row=index, column=0, sticky="ew", pady=4)
+            self.sidebar_buttons[key] = button
+
+        sidebar_actions = tk.Frame(sidebar, bg="#211833")
+        sidebar_actions.grid(row=3, column=0, sticky="ew", padx=18, pady=(8, 18))
+        ttk.Button(sidebar_actions, text="?????", command=self.choose_database, style="Ghost.TButton").grid(row=0, column=0, sticky="ew", pady=(0, 8))
+        ttk.Button(sidebar_actions, text="?????", command=self.reload_database, style="Accent.TButton").grid(row=1, column=0, sticky="ew")
+        sidebar_actions.columnconfigure(0, weight=1)
+
+        content = tk.Frame(shell, bg="#30264b")
+        content.grid(row=0, column=1, sticky="nsew")
+        content.columnconfigure(0, weight=1)
+        content.rowconfigure(1, weight=1)
+
+        header = tk.Frame(content, bg="#30264b")
+        header.grid(row=0, column=0, sticky="ew", padx=20, pady=(18, 10))
+        header.columnconfigure(0, weight=1)
+
+        title_block = tk.Frame(header, bg="#30264b")
+        title_block.grid(row=0, column=0, sticky="w")
+        tk.Label(title_block, textvariable=self.page_title_var, fg="#f8f2ff", bg="#30264b", font=("Microsoft YaHei UI", 24, "bold")).grid(row=0, column=0, sticky="w")
+        tk.Label(title_block, textvariable=self.page_subtitle_var, fg="#bcaee4", bg="#30264b", font=("Microsoft YaHei UI", 10)).grid(row=1, column=0, sticky="w", pady=(4, 0))
+
+        top_actions = tk.Frame(header, bg="#30264b")
+        top_actions.grid(row=0, column=1, sticky="e")
+        ttk.Button(top_actions, text="?????", command=self.choose_database, style="Ghost.TButton").grid(row=0, column=0, padx=(0, 8))
+        ttk.Button(top_actions, text="????", command=self.reload_database, style="Accent.TButton").grid(row=0, column=1)
+
+        info_strip = tk.Frame(content, bg="#30264b")
+        info_strip.grid(row=1, column=0, sticky="ew", padx=20, pady=(0, 10))
+        info_strip.columnconfigure(0, weight=1)
+        self.path_chip = tk.Label(info_strip, textvariable=self.path_var, fg="#f6edff", bg="#3a2f5a", padx=14, pady=8, font=("Microsoft YaHei UI", 9), wraplength=520, justify="left")
+        self.path_chip.grid(row=0, column=0, sticky="w")
+        self.page_chip = tk.Label(info_strip, textvariable=self.page_status_var, fg="#c7fbff", bg="#473572", padx=14, pady=8, font=("Microsoft YaHei UI", 9))
+        self.page_chip.grid(row=0, column=1, sticky="e")
+
+        content_card = tk.Frame(content, bg="#2d2344", highlightthickness=1, highlightbackground="#4a3a72")
+        content_card.grid(row=2, column=0, sticky="nsew", padx=20, pady=(0, 20))
+        content_card.columnconfigure(0, weight=1)
+        content_card.rowconfigure(0, weight=1)
+        content.rowconfigure(2, weight=1)
+
+        self.notebook = ttk.Notebook(content_card, style="SidebarNotebook")
+        self.notebook.grid(row=0, column=0, sticky="nsew", padx=8, pady=8)
+
+        self.items_tab = ttk.Frame(self.notebook, style="Shell.TFrame")
+        self.encyclopedia_tab = ttk.Frame(self.notebook, style="Shell.TFrame")
+        self.patterns_tab = ttk.Frame(self.notebook, style="Shell.TFrame")
+        self.notebook.add(self.items_tab, text="????")
+        self.notebook.add(self.encyclopedia_tab, text="????")
+        self.notebook.add(self.patterns_tab, text="???")
+        self.page_tabs = {
+            "items": self.items_tab,
+            "encyclopedia": self.encyclopedia_tab,
+            "patterns": self.patterns_tab,
+        }
 
         self.build_items_tab()
         self.build_encyclopedia_tab()
         self.build_patterns_tab()
+        self.show_page("items")
 
-        status_bar = ttk.Label(self.root, textvariable=self.status_var, relief="sunken", anchor="w", padding=(10, 6))
-        status_bar.grid(row=2, column=0, sticky="ew")
+        status_bar = tk.Label(
+            outer,
+            textvariable=self.status_var,
+            fg="#d7caef",
+            bg="#1a1428",
+            anchor="w",
+            padx=14,
+            pady=8,
+            font=("Microsoft YaHei UI", 9),
+        )
+        status_bar.grid(row=1, column=0, sticky="ew", padx=22, pady=(0, 18))
 
+    def show_page(self, page_key: str) -> None:
+        if page_key not in self.page_tabs:
+            return
+        self.current_page_key = page_key
+        self.notebook.select(self.page_tabs[page_key])
+        title, subtitle = self.page_meta.get(page_key, ("??????", ""))
+        self.page_title_var.set(title)
+        self.page_subtitle_var.set(subtitle)
+
+        if page_key == "items" and self.data is not None:
+            badge = f"?? {len(self.data.records)} ?"
+        elif page_key == "encyclopedia" and self.knowledge_base is not None:
+            badge = f"?? {sum(len(v) for v in self.knowledge_base.encyclopedia.values())} ?"
+        elif page_key == "patterns" and self.pattern_repository is not None:
+            badge = f"??? {len(self.pattern_visible_entries) if self.pattern_visible_entries else 0} ?"
+        else:
+            badge = "????"
+        self.page_status_var.set(badge)
+
+        for key, button in self.sidebar_buttons.items():
+            if key == page_key:
+                button.configure(bg="#5b47a5", fg="#ffffff", font=("Microsoft YaHei UI", 11, "bold"))
+            else:
+                button.configure(bg="#211833", fg="#d9cdf5", font=("Microsoft YaHei UI", 10))
     def build_items_tab(self) -> None:
         self.items_tab.columnconfigure(0, weight=1)
         self.items_tab.rowconfigure(1, weight=1)
 
-        filter_frame = ttk.LabelFrame(self.items_tab, text="搜索与分类", padding=(12, 10))
+        filter_frame = ttk.LabelFrame(self.items_tab, text="搜索与分类", padding=(12, 10), style="Card.TLabelframe")
         filter_frame.grid(row=0, column=0, sticky="ew", padx=2, pady=(2, 8))
         filter_frame.columnconfigure(1, weight=1)
         filter_frame.columnconfigure(3, weight=1)
@@ -473,7 +760,7 @@ class OfflineAssistantApp:
         paned.add(left_frame, weight=4)
         paned.add(right_frame, weight=3)
 
-        self.tree = ttk.Treeview(left_frame, columns=[column_id for column_id, _, _, _ in DISPLAY_COLUMNS], show="headings", selectmode="browse")
+        self.tree = ttk.Treeview(left_frame, columns=[column_id for column_id, _, _, _ in DISPLAY_COLUMNS], show="headings", selectmode="browse", style="App.Treeview")
         for column_id, title, width, anchor in DISPLAY_COLUMNS:
             self.tree.heading(column_id, text=title, command=lambda c=column_id: self.on_heading_click(c))
             self.tree.column(column_id, width=width, minwidth=80, anchor=anchor, stretch=True)
@@ -525,11 +812,13 @@ class OfflineAssistantApp:
         ttk.Label(parent, text="Wiki 摘要", style="Header.TLabel").grid(row=2, column=0, sticky="w", pady=(12, 4))
         self.item_summary_text = ScrolledText(parent, height=8, wrap="word")
         self.item_summary_text.grid(row=3, column=0, sticky="nsew")
+        style_text_widget(self.item_summary_text)
         self.item_summary_text.configure(state="disabled")
 
         ttk.Label(parent, text="离线资料详情", style="Header.TLabel").grid(row=4, column=0, sticky="w", pady=(12, 4))
         self.item_facts_text = ScrolledText(parent, height=12, wrap="word")
         self.item_facts_text.grid(row=5, column=0, sticky="nsew")
+        style_text_widget(self.item_facts_text)
         self.item_facts_text.configure(state="disabled")
         parent.rowconfigure(5, weight=1)
 
@@ -537,7 +826,7 @@ class OfflineAssistantApp:
         self.encyclopedia_tab.columnconfigure(0, weight=1)
         self.encyclopedia_tab.rowconfigure(1, weight=1)
 
-        control_frame = ttk.LabelFrame(self.encyclopedia_tab, text="离线百科搜索", padding=(12, 10))
+        control_frame = ttk.LabelFrame(self.encyclopedia_tab, text="离线百科搜索", padding=(12, 10), style="Card.TLabelframe")
         control_frame.grid(row=0, column=0, sticky="ew", padx=2, pady=(2, 8))
         control_frame.columnconfigure(3, weight=1)
 
@@ -594,11 +883,13 @@ class OfflineAssistantApp:
         ttk.Label(right_frame, text="Wiki 摘要", style="Header.TLabel").grid(row=4, column=0, sticky="w", pady=(12, 4))
         self.encyclopedia_summary_text = ScrolledText(right_frame, height=10, wrap="word")
         self.encyclopedia_summary_text.grid(row=5, column=0, sticky="nsew")
+        style_text_widget(self.encyclopedia_summary_text)
         self.encyclopedia_summary_text.configure(state="disabled")
 
         ttk.Label(right_frame, text="离线资料详情", style="Header.TLabel").grid(row=6, column=0, sticky="w", pady=(12, 4))
         self.encyclopedia_facts_text = ScrolledText(right_frame, height=14, wrap="word")
         self.encyclopedia_facts_text.grid(row=7, column=0, sticky="nsew")
+        style_text_widget(self.encyclopedia_facts_text)
         self.encyclopedia_facts_text.configure(state="disabled")
         right_frame.rowconfigure(7, weight=1)
 
@@ -606,7 +897,7 @@ class OfflineAssistantApp:
         self.patterns_tab.columnconfigure(0, weight=1)
         self.patterns_tab.rowconfigure(1, weight=1)
 
-        control_frame = ttk.LabelFrame(self.patterns_tab, text="设计图浏览", padding=(12, 10))
+        control_frame = ttk.LabelFrame(self.patterns_tab, text="设计图浏览", padding=(12, 10), style="Card.TLabelframe")
         control_frame.grid(row=0, column=0, sticky="ew", padx=2, pady=(2, 8))
         control_frame.columnconfigure(1, weight=1)
 
@@ -662,6 +953,7 @@ class OfflineAssistantApp:
         ttk.Label(right_frame, text="图案说明", style="Header.TLabel").grid(row=6, column=0, sticky="w", pady=(12, 4))
         self.pattern_details_text = ScrolledText(right_frame, height=14, wrap="word")
         self.pattern_details_text.grid(row=7, column=0, sticky="nsew")
+        style_text_widget(self.pattern_details_text)
         self.pattern_details_text.configure(state="disabled")
         right_frame.rowconfigure(7, weight=1)
 
@@ -679,12 +971,15 @@ class OfflineAssistantApp:
         self.root.bind("<F5>", lambda *_: self.reload_database())
 
     def focus_search(self, _event=None):
-        if self.notebook.index(self.notebook.select()) == 0:
+        if self.current_page_key == "items":
             self.search_entry.focus_set()
             self.search_entry.selection_range(0, tk.END)
-        else:
+        elif self.current_page_key == "encyclopedia":
             self.encyclopedia_search_entry.focus_set()
             self.encyclopedia_search_entry.selection_range(0, tk.END)
+        else:
+            self.pattern_search_entry.focus_set()
+            self.pattern_search_entry.selection_range(0, tk.END)
         return "break"
 
     def prompt_for_database(self) -> None:
@@ -734,6 +1029,7 @@ class OfflineAssistantApp:
         self.apply_filters()
         self.refresh_encyclopedia_view()
         self.refresh_pattern_view()
+        self.show_page(self.current_page_key)
 
     def clear_filters(self) -> None:
         self.search_var.set("")
@@ -762,6 +1058,8 @@ class OfflineAssistantApp:
         self.visible_records = sort_records(filtered, self.sort_column, self.sort_descending)
         self.render_tree()
         self.status_var.set(f"已加载 {len(self.data.records)} 条物品 | 当前显示 {len(self.visible_records)} 条")
+        if self.current_page_key == "items":
+            self.page_status_var.set(f"物品 {len(self.visible_records)} / {len(self.data.records)}")
 
     def render_tree(self) -> None:
         self.tree.delete(*self.tree.get_children())
@@ -917,6 +1215,8 @@ class OfflineAssistantApp:
             self.update_encyclopedia_detail(self.encyclopedia_visible_entries[0])
         else:
             self.clear_encyclopedia_detail()
+        if self.current_page_key == "encyclopedia":
+            self.page_status_var.set(f"百科 {len(self.encyclopedia_visible_entries)} 条")
 
     def clear_encyclopedia_detail(self) -> None:
         self.encyclopedia_title_var.set("-")
@@ -999,6 +1299,8 @@ class OfflineAssistantApp:
             self.update_pattern_detail(entries[0])
         else:
             self.clear_pattern_detail()
+        if self.current_page_key == "patterns":
+            self.page_status_var.set(f"设计图 {len(self.pattern_visible_entries)} 条")
 
     def clear_pattern_detail(self) -> None:
         self.pattern_title_var.set("-")
