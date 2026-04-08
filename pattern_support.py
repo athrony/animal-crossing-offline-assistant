@@ -517,6 +517,25 @@ class PatternRepository:
             row = connection.execute("SELECT * FROM pattern_entries WHERE id = ?", (entry_id,)).fetchone()
             return PatternEntry(**dict(row))
 
+    def prepare_export_file(self, entry_id: int, preferred_format: str = "acnl") -> tuple[PatternEntry, Path, str]:
+        preferred = preferred_format.lower()
+        entry = self.get_pattern(entry_id)
+
+        if preferred == "acnl":
+            if entry.acnl_rel_path or entry.acnl_url:
+                entry = self.download_pattern_acnl(entry_id)
+                source_path = self.data_dir / entry.acnl_rel_path
+                return entry, source_path, ".acnl"
+            entry = self.download_pattern(entry_id)
+            source_path = self.data_dir / entry.nhd_rel_path
+            suffix = Path(source_path).suffix.lower() or ".nhd"
+            return entry, source_path, suffix
+
+        entry = self.download_pattern(entry_id)
+        source_path = self.data_dir / entry.nhd_rel_path
+        suffix = Path(source_path).suffix.lower() or ".nhd"
+        return entry, source_path, suffix
+
     def import_pattern_files(self, file_paths: Iterable[Path]) -> int:
         inserted = 0
         with self._connect() as connection:
