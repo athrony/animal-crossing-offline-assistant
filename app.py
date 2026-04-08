@@ -1013,6 +1013,63 @@ class OfflineAssistantApp:
         self.pattern_details_text.configure(state="disabled")
         right_frame.rowconfigure(7, weight=1)
 
+    def build_tools_tab(self) -> None:
+        self.tools_tab.columnconfigure(0, weight=1)
+        self.tools_tab.rowconfigure(0, weight=1)
+
+        wrapper = ttk.Frame(self.tools_tab, style="Shell.TFrame", padding=(6, 6))
+        wrapper.grid(row=0, column=0, sticky="nsew")
+        wrapper.columnconfigure(0, weight=1)
+        wrapper.columnconfigure(1, weight=1)
+        wrapper.rowconfigure(1, weight=1)
+
+        intro = ttk.LabelFrame(wrapper, text="存档修改与本地镜像", padding=(16, 14), style="Card.TLabelframe")
+        intro.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 12))
+        intro.columnconfigure(0, weight=1)
+        ttk.Label(
+            intro,
+            text="这里提供 NHSE、ACNHDesignPatternEditor 和本地设计图镜像的统一入口。",
+            style="Value.TLabel",
+            wraplength=980,
+            justify="left",
+        ).grid(row=0, column=0, sticky="w")
+
+        nhse_card = ttk.LabelFrame(wrapper, text="NHSE 存档编辑器", padding=(16, 14), style="Card.TLabelframe")
+        nhse_card.grid(row=1, column=0, sticky="nsew", padx=(0, 8))
+        nhse_card.columnconfigure(0, weight=1)
+        ttk.Label(nhse_card, textvariable=self.tool_nhse_var, style="LargeValue.TLabel", wraplength=420, justify="left").grid(row=0, column=0, sticky="w")
+        ttk.Label(nhse_card, text="用于加载和修改 ACNH 存档。", style="Value.TLabel", wraplength=420, justify="left").grid(row=1, column=0, sticky="w", pady=(8, 12))
+        ttk.Button(nhse_card, text="下载或更新 NHSE", command=self.install_nhse_async, style="Accent.TButton").grid(row=2, column=0, sticky="ew", pady=(0, 8))
+        ttk.Button(nhse_card, text="启动 NHSE", command=self.launch_nhse, style="Ghost.TButton").grid(row=3, column=0, sticky="ew")
+
+        editor_card = ttk.LabelFrame(wrapper, text="设计图编辑器", padding=(16, 14), style="Card.TLabelframe")
+        editor_card.grid(row=1, column=1, sticky="nsew", padx=(8, 0))
+        editor_card.columnconfigure(0, weight=1)
+        ttk.Label(editor_card, textvariable=self.tool_editor_var, style="LargeValue.TLabel", wraplength=420, justify="left").grid(row=0, column=0, sticky="w")
+        ttk.Label(editor_card, text="用于直接编辑设计图存档槽位、导入导出图案项目。", style="Value.TLabel", wraplength=420, justify="left").grid(row=1, column=0, sticky="w", pady=(8, 12))
+        ttk.Button(editor_card, text="下载或更新设计图编辑器", command=self.install_pattern_editor_async, style="Accent.TButton").grid(row=2, column=0, sticky="ew", pady=(0, 8))
+        ttk.Button(editor_card, text="启动设计图编辑器", command=self.launch_pattern_editor, style="Ghost.TButton").grid(row=3, column=0, sticky="ew")
+
+        mirror_card = ttk.LabelFrame(wrapper, text="本地设计图镜像", padding=(16, 14), style="Card.TLabelframe")
+        mirror_card.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(12, 0))
+        mirror_card.columnconfigure(0, weight=1)
+        ttk.Label(mirror_card, textvariable=self.tool_mirror_var, style="LargeValue.TLabel", wraplength=900, justify="left").grid(row=0, column=0, sticky="w")
+        ttk.Label(
+            mirror_card,
+            text="把 Pattern Dump Index 整个同步到本地后，设计图页面会优先使用本地数据实现离线大图浏览与下载。",
+            style="Value.TLabel",
+            wraplength=900,
+            justify="left",
+        ).grid(row=1, column=0, sticky="w", pady=(8, 12))
+        actions = ttk.Frame(mirror_card, style="Shell.TFrame")
+        actions.grid(row=2, column=0, sticky="ew")
+        actions.columnconfigure(0, weight=1)
+        actions.columnconfigure(1, weight=1)
+        actions.columnconfigure(2, weight=1)
+        ttk.Button(actions, text="同步本地镜像", command=self.sync_pattern_mirror_async, style="Accent.TButton").grid(row=0, column=0, sticky="ew", padx=(0, 8))
+        ttk.Button(actions, text="打开镜像目录", command=self.open_pattern_mirror_folder, style="Ghost.TButton").grid(row=0, column=1, sticky="ew", padx=(8, 8))
+        ttk.Button(actions, text="打开离线站点", command=self.open_pattern_mirror_site, style="Ghost.TButton").grid(row=0, column=2, sticky="ew")
+
     def bind_events(self) -> None:
         self.search_var.trace_add("write", lambda *_: self.schedule_filter())
         self.category_combo.bind("<<ComboboxSelected>>", lambda *_: self.apply_filters())
