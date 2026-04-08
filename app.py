@@ -399,6 +399,13 @@ class OfflineAssistantApp:
         self.pattern_tags_var = tk.StringVar(value="-")
         self.pattern_saved_var = tk.StringVar(value="-")
         self.pattern_visible_entries: list[PatternEntry] = []
+        self.pattern_filtered_entries: list[PatternEntry] = []
+        self.selected_pattern_entry: PatternEntry | None = None
+        self.pattern_card_widgets: list[tk.Widget] = []
+        self.pattern_card_images: list[tk.PhotoImage] = []
+        self.pattern_page_index = 0
+        self.pattern_page_size = 36
+        self.pattern_page_var = tk.StringVar(value="第 1 页")
         self.tool_nhse_var = tk.StringVar(value="NHSE 未安装")
         self.tool_editor_var = tk.StringVar(value="设计图编辑器未安装")
         self.tool_mirror_var = tk.StringVar(value="本地镜像未同步")
@@ -808,7 +815,7 @@ class OfflineAssistantApp:
         for column_id, title, width, anchor in DISPLAY_COLUMNS:
             self.tree.heading(column_id, text=title, command=lambda c=column_id: self.on_heading_click(c))
             self.tree.column(column_id, width=width, minwidth=80, anchor=anchor, stretch=True)
-        self.tree.tag_configure("odd", background="#f7f9fb")
+        self.tree.tag_configure("odd", background="#433264", foreground="#f8f2ff")
         vertical_scrollbar = ttk.Scrollbar(left_frame, orient="vertical", command=self.tree.yview)
         horizontal_scrollbar = ttk.Scrollbar(left_frame, orient="horizontal", command=self.tree.xview)
         self.tree.configure(yscrollcommand=vertical_scrollbar.set, xscrollcommand=horizontal_scrollbar.set)
@@ -941,7 +948,7 @@ class OfflineAssistantApp:
         self.patterns_tab.columnconfigure(0, weight=1)
         self.patterns_tab.rowconfigure(1, weight=1)
 
-        control_frame = ttk.LabelFrame(self.patterns_tab, text="设计图浏览", padding=(12, 10), style="Card.TLabelframe")
+        control_frame = ttk.LabelFrame(self.patterns_tab, text="设计图中心", padding=(12, 10), style="Card.TLabelframe")
         control_frame.grid(row=0, column=0, sticky="ew", padx=2, pady=(2, 8))
         control_frame.columnconfigure(1, weight=1)
 
@@ -949,13 +956,13 @@ class OfflineAssistantApp:
         self.pattern_search_entry = ttk.Entry(control_frame, textvariable=self.pattern_search_var)
         self.pattern_search_entry.grid(row=0, column=1, sticky="ew", padx=(0, 12))
         ttk.Checkbutton(control_frame, text="仅显示已保存", variable=self.pattern_saved_only_var, command=self.refresh_pattern_view).grid(row=0, column=2, padx=(0, 12))
-        self.pattern_refresh_button = ttk.Button(control_frame, text="刷新网站索引", command=self.refresh_pattern_index_async)
+        self.pattern_refresh_button = ttk.Button(control_frame, text="刷新索引", command=self.refresh_pattern_index_async)
         self.pattern_refresh_button.grid(row=0, column=3, padx=(0, 8))
-        self.pattern_download_button = ttk.Button(control_frame, text="下载选中设计图", command=self.download_selected_pattern_async)
+        self.pattern_download_button = ttk.Button(control_frame, text="下载 ACNL", command=self.download_selected_pattern_async)
         self.pattern_download_button.grid(row=0, column=4, padx=(0, 8))
         self.pattern_import_button = ttk.Button(control_frame, text="导入本地图案", command=self.import_local_patterns)
         self.pattern_import_button.grid(row=0, column=5, padx=(0, 8))
-        ttk.Button(control_frame, text="打开图案目录", command=self.open_patterns_folder).grid(row=0, column=6, padx=(0, 8))
+        ttk.Button(control_frame, text="打开离线站点", command=self.open_pattern_mirror_site).grid(row=0, column=6, padx=(0, 8))
         ttk.Button(control_frame, text="查看大图", command=self.open_selected_pattern_preview).grid(row=0, column=7)
 
         paned = ttk.Panedwindow(self.patterns_tab, orient="horizontal")
@@ -963,29 +970,33 @@ class OfflineAssistantApp:
         left_frame = ttk.Frame(paned)
         right_frame = ttk.Frame(paned, padding=(12, 4))
         left_frame.columnconfigure(0, weight=1)
-        left_frame.rowconfigure(0, weight=1)
+        left_frame.rowconfigure(1, weight=1)
         right_frame.columnconfigure(0, weight=1)
         paned.add(left_frame, weight=4)
         paned.add(right_frame, weight=3)
 
-        self.pattern_tree = ttk.Treeview(
-            left_frame,
-            columns=("title", "creator", "type", "saved"),
-            show="headings",
-            selectmode="browse",
-        )
-        self.pattern_tree.heading("title", text="名称")
-        self.pattern_tree.heading("creator", text="作者")
-        self.pattern_tree.heading("type", text="类型")
-        self.pattern_tree.heading("saved", text="已保存")
-        self.pattern_tree.column("title", width=280, anchor="w")
-        self.pattern_tree.column("creator", width=180, anchor="w")
-        self.pattern_tree.column("type", width=140, anchor="w")
-        self.pattern_tree.column("saved", width=90, anchor="center")
-        p_vscroll = ttk.Scrollbar(left_frame, orient="vertical", command=self.pattern_tree.yview)
-        self.pattern_tree.configure(yscrollcommand=p_vscroll.set)
-        self.pattern_tree.grid(row=0, column=0, sticky="nsew")
+        pager = ttk.Frame(left_frame, style="Shell.TFrame")
+        pager.grid(row=0, column=0, sticky="ew", pady=(0, 8))
+        pager.columnconfigure(1, weight=1)
+        ttk.Button(pager, text="上一页", command=lambda: self.change_pattern_page(-1), style="Ghost.TButton").grid(row=0, column=0, sticky="w")
+        ttk.Label(pager, textvariable=self.pattern_page_var, style="Value.TLabel").grid(row=0, column=1)
+        ttk.Button(pager, text="下一页", command=lambda: self.change_pattern_page(1), style="Ghost.TButton").grid(row=0, column=2, sticky="e")
+
+        gallery_card = tk.Frame(left_frame, bg="#241b38", highlightthickness=1, highlightbackground="#4b3a72")
+        gallery_card.grid(row=1, column=0, sticky="nsew")
+        gallery_card.columnconfigure(0, weight=1)
+        gallery_card.rowconfigure(0, weight=1)
+
+        self.pattern_canvas = tk.Canvas(gallery_card, bg="#241b38", highlightthickness=0, bd=0)
+        self.pattern_canvas.grid(row=0, column=0, sticky="nsew")
+        p_vscroll = ttk.Scrollbar(gallery_card, orient="vertical", command=self.pattern_canvas.yview)
         p_vscroll.grid(row=0, column=1, sticky="ns")
+        self.pattern_canvas.configure(yscrollcommand=p_vscroll.set)
+
+        self.pattern_grid_frame = tk.Frame(self.pattern_canvas, bg="#241b38")
+        self.pattern_grid_window = self.pattern_canvas.create_window((0, 0), window=self.pattern_grid_frame, anchor="nw")
+        self.pattern_grid_frame.bind("<Configure>", lambda _event: self.pattern_canvas.configure(scrollregion=self.pattern_canvas.bbox("all")))
+        self.pattern_canvas.bind("<Configure>", lambda event: self.pattern_canvas.itemconfigure(self.pattern_grid_window, width=event.width))
 
         self.pattern_preview_label = ttk.Label(right_frame, text="暂无预览", anchor="center", relief="solid", width=28)
         self.pattern_preview_label.grid(row=0, column=0, sticky="nw")
@@ -1002,50 +1013,6 @@ class OfflineAssistantApp:
         self.pattern_details_text.configure(state="disabled")
         right_frame.rowconfigure(7, weight=1)
 
-    def build_tools_tab(self) -> None:
-        self.tools_tab.columnconfigure(0, weight=1)
-
-        wrapper = ttk.Frame(self.tools_tab, style="Shell.TFrame", padding=(6, 6))
-        wrapper.grid(row=0, column=0, sticky="nsew")
-        wrapper.columnconfigure(0, weight=1)
-        wrapper.columnconfigure(1, weight=1)
-        wrapper.rowconfigure(1, weight=1)
-
-        intro = ttk.LabelFrame(wrapper, text="存档修改与本地镜像", padding=(16, 14), style="Card.TLabelframe")
-        intro.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 12))
-        intro.columnconfigure(0, weight=1)
-        ttk.Label(intro, text="这里是你之前要求的真正工具入口：NHSE 存档编辑、设计图编辑器、以及整个 Pattern Dump Index 的本地镜像同步。", style="Value.TLabel", wraplength=980, justify="left").grid(row=0, column=0, sticky="w")
-
-        nhse_card = ttk.LabelFrame(wrapper, text="NHSE 存档编辑器", padding=(16, 14), style="Card.TLabelframe")
-        nhse_card.grid(row=1, column=0, sticky="nsew", padx=(0, 8))
-        nhse_card.columnconfigure(0, weight=1)
-        ttk.Label(nhse_card, textvariable=self.tool_nhse_var, style="LargeValue.TLabel", wraplength=420, justify="left").grid(row=0, column=0, sticky="w")
-        ttk.Label(nhse_card, text="支持加载和修改 ACNH 存档。", style="Value.TLabel", wraplength=420, justify="left").grid(row=1, column=0, sticky="w", pady=(8, 12))
-        ttk.Button(nhse_card, text="下载或更新 NHSE", command=self.install_nhse_async, style="Accent.TButton").grid(row=2, column=0, sticky="ew", pady=(0, 8))
-        ttk.Button(nhse_card, text="启动 NHSE", command=self.launch_nhse, style="Ghost.TButton").grid(row=3, column=0, sticky="ew")
-
-        editor_card = ttk.LabelFrame(wrapper, text="设计图编辑器", padding=(16, 14), style="Card.TLabelframe")
-        editor_card.grid(row=1, column=1, sticky="nsew", padx=(8, 0))
-        editor_card.columnconfigure(0, weight=1)
-        ttk.Label(editor_card, textvariable=self.tool_editor_var, style="LargeValue.TLabel", wraplength=420, justify="left").grid(row=0, column=0, sticky="w")
-        ttk.Label(editor_card, text="直接修改设计图存档槽位、导入导出图案项目。", style="Value.TLabel", wraplength=420, justify="left").grid(row=1, column=0, sticky="w", pady=(8, 12))
-        ttk.Button(editor_card, text="下载或更新设计图编辑器", command=self.install_pattern_editor_async, style="Accent.TButton").grid(row=2, column=0, sticky="ew", pady=(0, 8))
-        ttk.Button(editor_card, text="启动设计图编辑器", command=self.launch_pattern_editor, style="Ghost.TButton").grid(row=3, column=0, sticky="ew")
-
-        mirror_card = ttk.LabelFrame(wrapper, text="本地设计图镜像", padding=(16, 14), style="Card.TLabelframe")
-        mirror_card.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(12, 0))
-        mirror_card.columnconfigure(0, weight=1)
-        ttk.Label(mirror_card, textvariable=self.tool_mirror_var, style="LargeValue.TLabel", wraplength=900, justify="left").grid(row=0, column=0, sticky="w")
-        ttk.Label(mirror_card, text="把 vectorcmdr 的整套设计图库同步到本地后，设计图页将优先使用本地文件实现大图浏览和本地下载。", style="Value.TLabel", wraplength=900, justify="left").grid(row=1, column=0, sticky="w", pady=(8, 12))
-        actions = ttk.Frame(mirror_card, style="Shell.TFrame")
-        actions.grid(row=2, column=0, sticky="ew")
-        actions.columnconfigure(0, weight=1)
-        actions.columnconfigure(1, weight=1)
-        actions.columnconfigure(2, weight=1)
-        ttk.Button(actions, text="同步本地镜像", command=self.sync_pattern_mirror_async, style="Accent.TButton").grid(row=0, column=0, sticky="ew", padx=(0, 8))
-        ttk.Button(actions, text="打开镜像目录", command=self.open_pattern_mirror_folder, style="Ghost.TButton").grid(row=0, column=1, sticky="ew", padx=(8, 8))
-        ttk.Button(actions, text="打开离线站点", command=self.open_pattern_mirror_site, style="Ghost.TButton").grid(row=0, column=2, sticky="ew")
-
     def bind_events(self) -> None:
         self.search_var.trace_add("write", lambda *_: self.schedule_filter())
         self.category_combo.bind("<<ComboboxSelected>>", lambda *_: self.apply_filters())
@@ -1055,7 +1022,6 @@ class OfflineAssistantApp:
         self.encyclopedia_search_var.trace_add("write", lambda *_: self.refresh_encyclopedia_view())
         self.encyclopedia_tree.bind("<<TreeviewSelect>>", self.on_encyclopedia_selection)
         self.pattern_search_var.trace_add("write", lambda *_: self.refresh_pattern_view())
-        self.pattern_tree.bind("<<TreeviewSelect>>", self.on_pattern_selection)
         self.root.bind("<Control-f>", self.focus_search)
         self.root.bind("<F5>", lambda *_: self.reload_database())
 
@@ -1378,30 +1344,76 @@ class OfflineAssistantApp:
             query=self.pattern_search_var.get(),
             saved_only=self.pattern_saved_only_var.get(),
         )
-        self.pattern_visible_entries = entries
-        self.pattern_tree.delete(*self.pattern_tree.get_children())
-        for index, entry in enumerate(entries):
-            self.pattern_tree.insert(
-                "",
-                "end",
-                iid=str(index),
-                values=(
-                    entry.title,
-                    entry.creator or "Unknown",
-                    entry.pattern_type or "-",
-                    "是" if entry.is_saved else "否",
-                ),
-            )
-        if entries:
-            self.pattern_tree.selection_set("0")
-            self.pattern_tree.focus("0")
-            self.update_pattern_detail(entries[0])
+        state = self.external_tools.state() if self.external_tools else None
+        if state and state.pattern_mirror_dir:
+            mirror_entries = [entry for entry in entries if entry.source_type == "mirror"]
+            if mirror_entries:
+                entries = mirror_entries
+        self.pattern_filtered_entries = entries
+        max_page = max(1, (len(self.pattern_filtered_entries) + self.pattern_page_size - 1) // self.pattern_page_size)
+        self.pattern_page_index = min(self.pattern_page_index, max_page - 1)
+        self.render_pattern_gallery()
+        if self.current_page_key == "patterns":
+            self.page_status_var.set(f"设计图 {len(self.pattern_filtered_entries)} 条")
+            self.update_dashboard_stats()
+
+    def change_pattern_page(self, offset: int) -> None:
+        max_page = max(1, (len(self.pattern_filtered_entries) + self.pattern_page_size - 1) // self.pattern_page_size)
+        self.pattern_page_index = max(0, min(self.pattern_page_index + offset, max_page - 1))
+        self.render_pattern_gallery()
+
+    def render_pattern_gallery(self) -> None:
+        for widget in self.pattern_card_widgets:
+            widget.destroy()
+        self.pattern_card_widgets = []
+        self.pattern_card_images = []
+
+        total = len(self.pattern_filtered_entries)
+        if total == 0:
+            self.pattern_page_var.set("第 0 页 / 共 0 页")
+            self.pattern_visible_entries = []
+            self.clear_pattern_detail()
+            return
+
+        max_page = max(1, (total + self.pattern_page_size - 1) // self.pattern_page_size)
+        start_index = self.pattern_page_index * self.pattern_page_size
+        end_index = min(total, start_index + self.pattern_page_size)
+        self.pattern_visible_entries = self.pattern_filtered_entries[start_index:end_index]
+        self.pattern_page_var.set(f"第 {self.pattern_page_index + 1} 页 / 共 {max_page} 页")
+
+        columns = 4
+        for column in range(columns):
+            self.pattern_grid_frame.columnconfigure(column, weight=1)
+
+        for index, entry in enumerate(self.pattern_visible_entries):
+            row = index // columns
+            column = index % columns
+            card = tk.Frame(self.pattern_grid_frame, bg="#2f2448", highlightthickness=1, highlightbackground="#4b3a72", cursor="hand2")
+            card.grid(row=row, column=column, sticky="nsew", padx=8, pady=8)
+            card.columnconfigure(0, weight=1)
+
+            preview_entry = self.pattern_repository.ensure_preview_cached(entry.id) if self.pattern_repository else entry
+            preview_path = self.pattern_repository.image_path(preview_entry.preview_rel_path) if self.pattern_repository else None
+            image = load_photo_image(preview_path, max_size=128)
+            self.pattern_card_images.append(image)
+
+            preview_label = tk.Label(card, image=image, text="暂无预览" if image is None else "", compound="top", bg="#2f2448", fg="#f5ecff")
+            preview_label.grid(row=0, column=0, padx=10, pady=(10, 6))
+            title_label = tk.Label(card, text=entry.title or "未命名", wraplength=150, justify="center", bg="#2f2448", fg="#f5ecff", font=("Microsoft YaHei UI", 10, "bold"))
+            title_label.grid(row=1, column=0, padx=10, pady=(0, 10), sticky="ew")
+
+            for widget in (card, preview_label, title_label):
+                widget.bind("<Button-1>", lambda _event, selected_entry=entry: self.select_pattern_entry(selected_entry))
+                widget.bind("<Double-Button-1>", lambda _event, selected_entry=entry: self.download_pattern_acnl_async(selected_entry))
+            self.pattern_card_widgets.append(card)
+
+        if self.pattern_visible_entries:
+            self.select_pattern_entry(self.pattern_visible_entries[0])
         else:
             self.clear_pattern_detail()
-        if self.current_page_key == "patterns":
-            self.page_status_var.set(f"设计图 {len(self.pattern_visible_entries)} 条")
 
     def clear_pattern_detail(self) -> None:
+        self.selected_pattern_entry = None
         self.pattern_title_var.set("-")
         self.pattern_creator_var.set("-")
         self.pattern_type_var.set("-")
@@ -1419,32 +1431,41 @@ class OfflineAssistantApp:
         self.pattern_saved_var.set(f"已保存：{'是' if entry.is_saved else '否'}")
 
         details = []
-        if entry.nhd_url:
-            details.append(f"NHD：{entry.nhd_url}")
-        if entry.acnl_url:
-            details.append(f"ACNL：{entry.acnl_url}")
-        if entry.qr_url:
-            details.append(f"QR：{entry.qr_url}")
+        if entry.acnl_rel_path or entry.acnl_url:
+            details.append("可下载 ACNL 文件")
+        if entry.nhd_rel_path or entry.nhd_url:
+            details.append("可下载 NHD/NHPD 文件")
+        if entry.qr_rel_path or entry.qr_url:
+            details.append("可查看 QR 图")
+        if entry.source_type:
+            details.append(f"来源类型：{entry.source_type}")
         if entry.source_url:
             details.append(f"来源：{entry.source_url}")
         set_text_widget(self.pattern_details_text, "\n".join(details))
 
         preview_entry = self.pattern_repository.ensure_preview_cached(entry.id) if self.pattern_repository else entry
         preview_path = self.pattern_repository.image_path(preview_entry.preview_rel_path) if self.pattern_repository else None
-        image = load_photo_image(preview_path, max_size=220)
+        image = load_photo_image(preview_path, max_size=320)
         self.pattern_preview_ref = image
         if image is not None:
             self.pattern_preview_label.configure(image=image, text="")
         else:
             self.pattern_preview_label.configure(image="", text="暂无预览")
 
-    def on_pattern_selection(self, _event=None) -> None:
-        selection = self.pattern_tree.selection()
-        if not selection:
+    def select_pattern_entry(self, entry: PatternEntry) -> None:
+        self.selected_pattern_entry = entry
+        self.update_pattern_detail(entry)
+
+    def download_pattern_acnl_async(self, entry: PatternEntry | None = None) -> None:
+        if self.pattern_repository is None:
             return
-        index = int(selection[0])
-        if 0 <= index < len(self.pattern_visible_entries):
-            self.update_pattern_detail(self.pattern_visible_entries[index])
+        selected_entry = entry or self.selected_pattern_entry
+        if selected_entry is None:
+            if not self.pattern_visible_entries:
+                return
+            selected_entry = self.pattern_visible_entries[0]
+        self.status_var.set(f"正在下载 ACNL：{selected_entry.title}")
+        self._run_pattern_task("download-pattern-acnl", lambda: self.pattern_repository.download_pattern_acnl(selected_entry.id))
 
     def _run_pattern_task(self, task_name: str, callback) -> None:
         if self.pattern_thread is not None and self.pattern_thread.is_alive():
@@ -1468,17 +1489,7 @@ class OfflineAssistantApp:
         self._run_pattern_task("refresh-index", lambda: self.pattern_repository.refresh_site_index())
 
     def download_selected_pattern_async(self) -> None:
-        if self.pattern_repository is None:
-            return
-        selection = self.pattern_tree.selection()
-        if not selection:
-            return
-        index = int(selection[0])
-        if not (0 <= index < len(self.pattern_visible_entries)):
-            return
-        entry = self.pattern_visible_entries[index]
-        self.status_var.set(f"正在下载设计图：{entry.title}")
-        self._run_pattern_task("download-pattern", lambda: self.pattern_repository.download_pattern(entry.id))
+        self.download_pattern_acnl_async()
 
     def import_local_patterns(self) -> None:
         if self.pattern_repository is None:
@@ -1580,18 +1591,12 @@ class OfflineAssistantApp:
             os.startfile(index_path)  # type: ignore[attr-defined]
 
     def open_selected_pattern_preview(self) -> None:
-        if self.pattern_repository is None:
+        if self.pattern_repository is None or self.selected_pattern_entry is None:
             return
-        selection = self.pattern_tree.selection()
-        if not selection:
-            return
-        index = int(selection[0])
-        if not (0 <= index < len(self.pattern_visible_entries)):
-            return
-        entry = self.pattern_repository.ensure_preview_cached(self.pattern_visible_entries[index].id)
+        entry = self.pattern_repository.ensure_preview_cached(self.selected_pattern_entry.id)
         preview_path = self.pattern_repository.image_path(entry.preview_rel_path)
         if preview_path is None or not preview_path.exists():
-            messagebox.showinfo(APP_TITLE, "当前设计图没有可用的大图预览。")
+            messagebox.showinfo(APP_TITLE, "???????????????")
             return
         if sys.platform.startswith("win"):
             import os

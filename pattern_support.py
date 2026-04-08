@@ -287,11 +287,21 @@ class PatternRepository:
                 SELECT *
                 FROM pattern_entries
                 {where_sql}
-                ORDER BY is_saved DESC, title COLLATE NOCASE
+                ORDER BY
+                    CASE source_type WHEN 'mirror' THEN 0 WHEN 'local' THEN 1 WHEN 'site' THEN 2 ELSE 3 END,
+                    is_saved DESC,
+                    title COLLATE NOCASE
                 """,
                 params,
             ).fetchall()
         return [PatternEntry(**dict(row)) for row in rows]
+
+    def get_pattern(self, entry_id: int) -> PatternEntry:
+        with self._connect() as connection:
+            row = connection.execute("SELECT * FROM pattern_entries WHERE id = ?", (entry_id,)).fetchone()
+            if row is None:
+                raise ValueError(f"Pattern entry not found: {entry_id}")
+            return PatternEntry(**dict(row))
 
     def _relative_path(self, path: Path) -> str:
         return path.relative_to(self.data_dir).as_posix()
@@ -464,6 +474,39 @@ class PatternRepository:
             )
             connection.commit()
 
+            row = connection.execute("SELECT * FROM pattern_entries WHERE id = ?", (entry_id,)).fetchone()
+            return PatternEntry(**dict(row))
+
+    def download_pattern_acnl(self, entry_id: int) -> PatternEntry:
+        with self._connect() as connection:
+            row = connection.execute("SELECT * FROM pattern_entries WHERE id = ?", (entry_id,)).fetchone()
+            if row is None:
+                raise ValueError(f"Pattern entry not found: {entry_id}")
+            entry = PatternEntry(**dict(row))
+
+            if entry.acnl_rel_path:
+                source_path = self.data_dir / entry.acnl_rel_path
+                if source_path.exists():
+                    target_path = self.downloads_dir / source_path.name
+                    if source_path.resolve() != target_path.resolve():
+                        shutil.copy2(source_path, target_path)
+                    acnl_rel_path = self._relative_path(target_path)
+                else:
+                    acnl_rel_path = ""
+            elif entry.acnl_url:
+                acnl_rel_path = self._download_to(entry.acnl_url, self.downloads_dir / Path(entry.acnl_url).name)
+            else:
+                raise ValueError("This pattern does not provide an ACNL file.")
+
+            connection.execute(
+                """
+                UPDATE pattern_entries
+                SET acnl_rel_path = ?, is_saved = 1, updated_at = ?
+                WHERE id = ?
+                """,
+                (acnl_rel_path, now_iso(), entry.id),
+            )
+            connection.commit()
             row = connection.execute("SELECT * FROM pattern_entries WHERE id = ?", (entry_id,)).fetchone()
             return PatternEntry(**dict(row))
 
