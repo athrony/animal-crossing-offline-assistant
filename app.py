@@ -962,20 +962,20 @@ class OfflineAssistantApp:
         control_frame.grid(row=0, column=0, sticky="ew", padx=2, pady=(2, 8))
         control_frame.columnconfigure(1, weight=1)
 
-        ttk.Label(control_frame, text="???").grid(row=0, column=0, sticky="w", padx=(0, 8))
+        ttk.Label(control_frame, text="关键词").grid(row=0, column=0, sticky="w", padx=(0, 8))
         self.pattern_search_entry = ttk.Entry(control_frame, textvariable=self.pattern_search_var)
         self.pattern_search_entry.grid(row=0, column=1, sticky="ew", padx=(0, 12))
         self.pattern_category_combo = ttk.Combobox(control_frame, textvariable=self.pattern_category_var, state="readonly", values=("all", "simple", "pro"), width=12)
         self.pattern_category_combo.grid(row=0, column=2, padx=(0, 12))
-        ttk.Checkbutton(control_frame, text="??????", variable=self.pattern_saved_only_var, command=self.refresh_pattern_view).grid(row=0, column=3, padx=(0, 12))
-        self.pattern_refresh_button = ttk.Button(control_frame, text="????", command=self.refresh_pattern_index_async)
+        ttk.Checkbutton(control_frame, text="仅显示已保存", variable=self.pattern_saved_only_var, command=self.refresh_pattern_view).grid(row=0, column=3, padx=(0, 12))
+        self.pattern_refresh_button = ttk.Button(control_frame, text="刷新索引", command=self.refresh_pattern_index_async)
         self.pattern_refresh_button.grid(row=0, column=4, padx=(0, 8))
-        self.pattern_download_button = ttk.Button(control_frame, text="?? ACNL", command=self.download_selected_pattern_async)
+        self.pattern_download_button = ttk.Button(control_frame, text="下载 ACNL", command=self.download_selected_pattern_async)
         self.pattern_download_button.grid(row=0, column=5, padx=(0, 8))
-        self.pattern_import_button = ttk.Button(control_frame, text="??????", command=self.import_local_patterns)
+        self.pattern_import_button = ttk.Button(control_frame, text="导入本地图案", command=self.import_local_patterns)
         self.pattern_import_button.grid(row=0, column=6, padx=(0, 8))
-        ttk.Button(control_frame, text="??????", command=self.open_pattern_mirror_site).grid(row=0, column=7, padx=(0, 8))
-        ttk.Button(control_frame, text="????", command=self.open_selected_pattern_preview).grid(row=0, column=8)
+        ttk.Button(control_frame, text="打开离线站点", command=self.open_pattern_mirror_site).grid(row=0, column=7, padx=(0, 8))
+        ttk.Button(control_frame, text="查看大图", command=self.open_selected_pattern_preview).grid(row=0, column=8)
 
         paned = ttk.Panedwindow(self.patterns_tab, orient="horizontal")
         paned.grid(row=1, column=0, sticky="nsew")
@@ -1669,7 +1669,7 @@ class OfflineAssistantApp:
         entry = self.pattern_repository.ensure_preview_cached(self.selected_pattern_entry.id)
         preview_path = self.pattern_repository.image_path(entry.preview_rel_path)
         if preview_path is None or not preview_path.exists():
-            messagebox.showinfo(APP_TITLE, "???????????????")
+            messagebox.showinfo(APP_TITLE, "当前设计图没有可用的 ACNL 文件。")
             return
         if sys.platform.startswith("win"):
             import os
