@@ -1484,9 +1484,9 @@ class OfflineAssistantApp:
             has_acnl = pattern_has_acnl(entry)
             has_nhd = pattern_has_nhd(entry)
 
-            preview_label = tk.Label(card, image=image, text="????" if image is None else "", compound="top", bg="#2f2448", fg="#f5ecff", cursor="hand2")
+            preview_label = tk.Label(card, image=image, text="暂无预览" if image is None else "", compound="top", bg="#2f2448", fg="#f5ecff", cursor="hand2")
             preview_label.grid(row=0, column=0, padx=10, pady=(10, 6))
-            title_label = tk.Label(card, text=entry.title or "???", wraplength=150, justify="center", bg="#2f2448", fg="#f5ecff", font=("Microsoft YaHei UI", 10, "bold"))
+            title_label = tk.Label(card, text=entry.title or "未命名", wraplength=150, justify="center", bg="#2f2448", fg="#f5ecff", font=("Microsoft YaHei UI", 10, "bold"))
             title_label.grid(row=1, column=0, padx=10, pady=(0, 6), sticky="ew")
 
             format_row = tk.Frame(card, bg="#2f2448")
@@ -1596,7 +1596,7 @@ class OfflineAssistantApp:
             selected_entry = self.pattern_visible_entries[0]
 
         preferred = (self.pattern_export_format_var.get() or "acnl").lower()
-        self.status_var.set(f"???????{selected_entry.title}")
+        self.status_var.set(f"正在准备导出：{selected_entry.title}")
         self._run_pattern_task("export-pattern-default", lambda: self.pattern_repository.prepare_export_file(selected_entry.id, preferred))
 
     def export_pattern_as_nhd_async(self, entry: PatternEntry | None = None) -> None:
@@ -1607,7 +1607,7 @@ class OfflineAssistantApp:
             if not self.pattern_visible_entries:
                 return
             selected_entry = self.pattern_visible_entries[0]
-        self.status_var.set(f"?????? NHD?{selected_entry.title}")
+        self.status_var.set(f"正在准备导出 NHD：{selected_entry.title}")
         self._run_pattern_task("export-pattern-default", lambda: self.pattern_repository.prepare_export_file(selected_entry.id, "nhd"))
 
     def open_selected_pattern_preview_for_entry(self, entry: PatternEntry) -> None:
