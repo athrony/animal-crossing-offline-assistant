@@ -172,6 +172,15 @@ def style_text_widget(widget: ScrolledText) -> None:
     )
 
 
+def get_pattern_collection(entry: PatternEntry) -> str:
+    value = f"{entry.nhd_rel_path}|{entry.source_url}|{entry.acnl_rel_path}".replace("\\", "/").lower()
+    if "/simple/" in value or value.startswith("simple::"):
+        return "simple"
+    if "/pro/" in value or value.startswith("pro::") or entry.nhd_rel_path.lower().endswith(".nhpd"):
+        return "pro"
+    return "other"
+
+
 def open_connection(db_path: Path) -> sqlite3.Connection:
     connection = sqlite3.connect(db_path)
     connection.row_factory = sqlite3.Row
@@ -393,6 +402,7 @@ class OfflineAssistantApp:
         self.encyclopedia_visible_entries: list[dict[str, str]] = []
         self.pattern_search_var = tk.StringVar()
         self.pattern_saved_only_var = tk.BooleanVar(value=False)
+        self.pattern_category_var = tk.StringVar(value="all")
         self.pattern_title_var = tk.StringVar(value="-")
         self.pattern_creator_var = tk.StringVar(value="-")
         self.pattern_type_var = tk.StringVar(value="-")
@@ -815,7 +825,7 @@ class OfflineAssistantApp:
         for column_id, title, width, anchor in DISPLAY_COLUMNS:
             self.tree.heading(column_id, text=title, command=lambda c=column_id: self.on_heading_click(c))
             self.tree.column(column_id, width=width, minwidth=80, anchor=anchor, stretch=True)
-        self.tree.tag_configure("odd", background="#433264", foreground="#f8f2ff")
+        self.tree.tag_configure("row", background="#3b2f5c", foreground="#f8f2ff")
         vertical_scrollbar = ttk.Scrollbar(left_frame, orient="vertical", command=self.tree.yview)
         horizontal_scrollbar = ttk.Scrollbar(left_frame, orient="horizontal", command=self.tree.xview)
         self.tree.configure(yscrollcommand=vertical_scrollbar.set, xscrollcommand=horizontal_scrollbar.set)
@@ -952,18 +962,20 @@ class OfflineAssistantApp:
         control_frame.grid(row=0, column=0, sticky="ew", padx=2, pady=(2, 8))
         control_frame.columnconfigure(1, weight=1)
 
-        ttk.Label(control_frame, text="关键词").grid(row=0, column=0, sticky="w", padx=(0, 8))
+        ttk.Label(control_frame, text="???").grid(row=0, column=0, sticky="w", padx=(0, 8))
         self.pattern_search_entry = ttk.Entry(control_frame, textvariable=self.pattern_search_var)
         self.pattern_search_entry.grid(row=0, column=1, sticky="ew", padx=(0, 12))
-        ttk.Checkbutton(control_frame, text="仅显示已保存", variable=self.pattern_saved_only_var, command=self.refresh_pattern_view).grid(row=0, column=2, padx=(0, 12))
-        self.pattern_refresh_button = ttk.Button(control_frame, text="刷新索引", command=self.refresh_pattern_index_async)
-        self.pattern_refresh_button.grid(row=0, column=3, padx=(0, 8))
-        self.pattern_download_button = ttk.Button(control_frame, text="下载 ACNL", command=self.download_selected_pattern_async)
-        self.pattern_download_button.grid(row=0, column=4, padx=(0, 8))
-        self.pattern_import_button = ttk.Button(control_frame, text="导入本地图案", command=self.import_local_patterns)
-        self.pattern_import_button.grid(row=0, column=5, padx=(0, 8))
-        ttk.Button(control_frame, text="打开离线站点", command=self.open_pattern_mirror_site).grid(row=0, column=6, padx=(0, 8))
-        ttk.Button(control_frame, text="查看大图", command=self.open_selected_pattern_preview).grid(row=0, column=7)
+        self.pattern_category_combo = ttk.Combobox(control_frame, textvariable=self.pattern_category_var, state="readonly", values=("all", "simple", "pro"), width=12)
+        self.pattern_category_combo.grid(row=0, column=2, padx=(0, 12))
+        ttk.Checkbutton(control_frame, text="??????", variable=self.pattern_saved_only_var, command=self.refresh_pattern_view).grid(row=0, column=3, padx=(0, 12))
+        self.pattern_refresh_button = ttk.Button(control_frame, text="????", command=self.refresh_pattern_index_async)
+        self.pattern_refresh_button.grid(row=0, column=4, padx=(0, 8))
+        self.pattern_download_button = ttk.Button(control_frame, text="?? ACNL", command=self.download_selected_pattern_async)
+        self.pattern_download_button.grid(row=0, column=5, padx=(0, 8))
+        self.pattern_import_button = ttk.Button(control_frame, text="??????", command=self.import_local_patterns)
+        self.pattern_import_button.grid(row=0, column=6, padx=(0, 8))
+        ttk.Button(control_frame, text="??????", command=self.open_pattern_mirror_site).grid(row=0, column=7, padx=(0, 8))
+        ttk.Button(control_frame, text="????", command=self.open_selected_pattern_preview).grid(row=0, column=8)
 
         paned = ttk.Panedwindow(self.patterns_tab, orient="horizontal")
         paned.grid(row=1, column=0, sticky="nsew")
@@ -1079,6 +1091,7 @@ class OfflineAssistantApp:
         self.encyclopedia_search_var.trace_add("write", lambda *_: self.refresh_encyclopedia_view())
         self.encyclopedia_tree.bind("<<TreeviewSelect>>", self.on_encyclopedia_selection)
         self.pattern_search_var.trace_add("write", lambda *_: self.refresh_pattern_view())
+        self.pattern_category_combo.bind("<<ComboboxSelected>>", lambda *_: self.refresh_pattern_view())
         self.root.bind("<Control-f>", self.focus_search)
         self.root.bind("<F5>", lambda *_: self.reload_database())
 
@@ -1186,7 +1199,7 @@ class OfflineAssistantApp:
     def render_tree(self) -> None:
         self.tree.delete(*self.tree.get_children())
         for index, record in enumerate(self.visible_records):
-            tags = ("odd",) if index % 2 else ()
+            tags = ("row",)
             self.tree.insert(
                 "",
                 "end",
@@ -1406,6 +1419,9 @@ class OfflineAssistantApp:
             mirror_entries = [entry for entry in entries if entry.source_type == "mirror"]
             if mirror_entries:
                 entries = mirror_entries
+        category = (self.pattern_category_var.get() or "all").lower()
+        if category != "all":
+            entries = [entry for entry in entries if get_pattern_collection(entry) == category]
         self.pattern_filtered_entries = entries
         max_page = max(1, (len(self.pattern_filtered_entries) + self.pattern_page_size - 1) // self.pattern_page_size)
         self.pattern_page_index = min(self.pattern_page_index, max_page - 1)

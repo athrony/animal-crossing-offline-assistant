@@ -318,6 +318,10 @@ class PatternRepository:
             raise FileNotFoundError(files_root)
 
         entries: list[dict[str, str]] = []
+        with self._connect() as connection:
+            connection.execute("DELETE FROM pattern_entries WHERE source_type = 'mirror'")
+            connection.commit()
+
         for category in ("simple", "pro", "pat"):
             category_dir = files_root / category
             if not category_dir.exists():
@@ -346,7 +350,7 @@ class PatternRepository:
 
                 entries.append(
                     {
-                        "site_key": nh_file.name.lower(),
+                        "site_key": f"{category}::{nh_file.name.lower()}",
                         "title": title,
                         "creator": creator,
                         "pattern_type": pattern_type,
@@ -374,6 +378,7 @@ class PatternRepository:
                         is_saved, added_at, updated_at
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(site_key) DO UPDATE SET
+                        source_type=excluded.source_type,
                         title=excluded.title,
                         creator=excluded.creator,
                         pattern_type=excluded.pattern_type,
