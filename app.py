@@ -425,6 +425,7 @@ class OfflineAssistantApp:
         self.selected_pattern_entry: PatternEntry | None = None
         self.pattern_card_widgets: list[tk.Widget] = []
         self.pattern_card_images: list[tk.PhotoImage] = []
+        self.pattern_paned: ttk.Panedwindow | None = None
         self.pattern_page_index = 0
         self.pattern_page_size = 36
         self.pattern_page_var = tk.StringVar(value="第 1 页")
@@ -781,6 +782,8 @@ class OfflineAssistantApp:
         else:
             badge = "等待加载"
         self.page_status_var.set(badge)
+        if page_key == "patterns":
+            self.root.after(80, self.apply_default_pattern_layout)
         self.update_dashboard_stats()
 
         for key, button in self.sidebar_buttons.items():
@@ -983,12 +986,13 @@ class OfflineAssistantApp:
 
         paned = ttk.Panedwindow(self.patterns_tab, orient="horizontal")
         paned.grid(row=1, column=0, sticky="nsew")
+        self.pattern_paned = paned
         left_frame = ttk.Frame(paned)
-        right_frame = ttk.Frame(paned, padding=(10, 4), width=360)
+        right_frame = ttk.Frame(paned, padding=(10, 4), width=320)
         left_frame.columnconfigure(0, weight=1)
         left_frame.rowconfigure(1, weight=1)
         right_frame.columnconfigure(0, weight=1)
-        paned.add(left_frame, weight=5)
+        paned.add(left_frame, weight=7)
         paned.add(right_frame, weight=2)
 
         pager = ttk.Frame(left_frame, style="Shell.TFrame")
@@ -1016,7 +1020,7 @@ class OfflineAssistantApp:
         self.pattern_canvas.bind("<Configure>", lambda event: self.pattern_canvas.itemconfigure(self.pattern_grid_window, width=event.width))
         self.bind_pattern_scroll(self.pattern_grid_frame)
 
-        pattern_wraplength = 360
+        pattern_wraplength = 300
         self.pattern_preview_label = ttk.Label(right_frame, text="暂无预览", anchor="center", relief="solid", width=22)
         self.pattern_preview_label.grid(row=0, column=0, sticky="nw")
         ttk.Label(right_frame, textvariable=self.pattern_title_var, style="LargeValue.TLabel", wraplength=pattern_wraplength, justify="left").grid(row=1, column=0, sticky="w", pady=(10, 0))
@@ -1031,6 +1035,25 @@ class OfflineAssistantApp:
         style_text_widget(self.pattern_details_text)
         self.pattern_details_text.configure(state="disabled")
         right_frame.rowconfigure(7, weight=1)
+        self.root.after(120, self.apply_default_pattern_layout)
+
+    def apply_default_pattern_layout(self) -> None:
+        if self.pattern_paned is None:
+            return
+        if self.current_page_key != "patterns":
+            return
+        total_width = self.pattern_paned.winfo_width()
+        if total_width < 200:
+            self.root.after(120, self.apply_default_pattern_layout)
+            return
+        left_width = max(860, int(total_width * 0.7))
+        left_width = min(left_width, total_width - 320)
+        if left_width <= 0:
+            return
+        try:
+            self.pattern_paned.sashpos(0, left_width)
+        except tk.TclError:
+            return
 
     def bind_pattern_scroll(self, widget: tk.Misc) -> None:
         widget.bind("<MouseWheel>", self.on_pattern_mousewheel, add="+")
@@ -1501,8 +1524,8 @@ class OfflineAssistantApp:
             preview_path = self.pattern_repository.image_path(preview_entry.preview_rel_path) if self.pattern_repository else None
             image = load_photo_image(
                 preview_path,
-                max_size=192 if get_pattern_collection(entry) == "simple" else 128,
-                scale_up=4 if get_pattern_collection(entry) == "simple" else 1,
+                max_size=192,
+                scale_up=4,
             )
             self.pattern_card_images.append(image)
             has_acnl = pattern_has_acnl(entry)
