@@ -13,12 +13,14 @@ It now ships with:
 - offline encyclopedia entries stored in the database
 - bundled local image assets in `data/images/`
 - NHSE-derived item menu icons and villager portraits
+- a built-in ACNH pattern browser and local pattern library
 
 ## Main Files
 
 - `app.py`: database-driven desktop app
 - `build_database.py`: converts `items.csv` + lightweight cache into SQLite
 - `build_database.py`: converts `items.csv` + lightweight cache + NHSE assets into SQLite
+- `pattern_support.py`: parses the ACNH Pattern Dump Index and manages downloaded/imported patterns
 - `build.ps1`: rebuilds the database and packages the EXE
 - `data/animal_crossing_offline.db`: bundled runtime database
 - `dist/ItemsBilingualViewer.exe`: packaged Windows executable
@@ -63,7 +65,28 @@ Build output:
 - Local `items.csv`
 - Lightweight cached Nookipedia-derived offline knowledge data
 - NHSE text and sprite assets: https://github.com/kwsch/NHSE
+- ACNHDesignPatternEditor reference project: https://github.com/FluffyFishGames/ACNHDesignPatternEditor
+- ACNH Pattern Dump Index: https://www.vectorcmdr.xyz/ACNH-Pattern-Dump-Index/
+
+## Pattern Browser
+
+The app includes a `设计图` tab that can:
+
+- browse the ACNH Pattern Dump Index
+- search by title, creator, type, and tags
+- preview selected patterns
+- download `.nhd`, `.acnl`, and QR PNG files
+- import local `.nhd`, `.acnl`, and `.png` files into a local library
+
+The bundled database is preloaded with the pattern site index during `build.ps1`.
 
 ## Repository Note
 
 This repository intentionally tracks the bundled database, NHSE-enriched image assets, and the packaged EXE.
+
+## License
+
+This project is distributed under GPL-3.0 because it includes and derives data/assets from GPL-3.0 projects:
+
+- NHSE: https://github.com/kwsch/NHSE
+- ACNHDesignPatternEditor reference project: https://github.com/FluffyFishGames/ACNHDesignPatternEditor

@@ -3,14 +3,18 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import queue
 import sqlite3
 import sys
+import threading
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 from tkinter.scrolledtext import ScrolledText
 import tkinter as tk
+
+from pattern_support import PatternEntry, PatternRepository
 
 
 APP_TITLE = "动森离线助手"
@@ -339,6 +343,9 @@ class OfflineAssistantApp:
         self.sort_column = "item_id"
         self.sort_descending = False
         self.filter_job: str | None = None
+        self.pattern_repository: PatternRepository | None = None
+        self.pattern_thread: threading.Thread | None = None
+        self.pattern_queue: queue.Queue[tuple[str, object]] = queue.Queue()
 
         self.search_var = tk.StringVar()
         self.category_var = tk.StringVar(value=ALL_CATEGORIES)
@@ -361,9 +368,18 @@ class OfflineAssistantApp:
         self.encyclopedia_search_var = tk.StringVar()
         self.encyclopedia_section_choices: list[tuple[str, str]] = []
         self.encyclopedia_visible_entries: list[dict[str, str]] = []
+        self.pattern_search_var = tk.StringVar()
+        self.pattern_saved_only_var = tk.BooleanVar(value=False)
+        self.pattern_title_var = tk.StringVar(value="-")
+        self.pattern_creator_var = tk.StringVar(value="-")
+        self.pattern_type_var = tk.StringVar(value="-")
+        self.pattern_tags_var = tk.StringVar(value="-")
+        self.pattern_saved_var = tk.StringVar(value="-")
+        self.pattern_visible_entries: list[PatternEntry] = []
 
         self.item_image_ref: tk.PhotoImage | None = None
         self.encyclopedia_image_ref: tk.PhotoImage | None = None
+        self.pattern_preview_ref: tk.PhotoImage | None = None
 
         self.configure_style()
         self.build_ui()
@@ -373,6 +389,7 @@ class OfflineAssistantApp:
             self.load_database(initial_db_path)
         else:
             self.prompt_for_database()
+        self.poll_pattern_queue()
 
     def configure_style(self) -> None:
         self.root.option_add("*Font", ("Microsoft YaHei UI", 10))
@@ -410,11 +427,14 @@ class OfflineAssistantApp:
 
         self.items_tab = ttk.Frame(self.notebook)
         self.encyclopedia_tab = ttk.Frame(self.notebook)
+        self.patterns_tab = ttk.Frame(self.notebook)
         self.notebook.add(self.items_tab, text="物品对照")
         self.notebook.add(self.encyclopedia_tab, text="离线百科")
+        self.notebook.add(self.patterns_tab, text="设计图")
 
         self.build_items_tab()
         self.build_encyclopedia_tab()
+        self.build_patterns_tab()
 
         status_bar = ttk.Label(self.root, textvariable=self.status_var, relief="sunken", anchor="w", padding=(10, 6))
         status_bar.grid(row=2, column=0, sticky="ew")
@@ -582,6 +602,69 @@ class OfflineAssistantApp:
         self.encyclopedia_facts_text.configure(state="disabled")
         right_frame.rowconfigure(7, weight=1)
 
+    def build_patterns_tab(self) -> None:
+        self.patterns_tab.columnconfigure(0, weight=1)
+        self.patterns_tab.rowconfigure(1, weight=1)
+
+        control_frame = ttk.LabelFrame(self.patterns_tab, text="设计图浏览", padding=(12, 10))
+        control_frame.grid(row=0, column=0, sticky="ew", padx=2, pady=(2, 8))
+        control_frame.columnconfigure(1, weight=1)
+
+        ttk.Label(control_frame, text="关键词").grid(row=0, column=0, sticky="w", padx=(0, 8))
+        self.pattern_search_entry = ttk.Entry(control_frame, textvariable=self.pattern_search_var)
+        self.pattern_search_entry.grid(row=0, column=1, sticky="ew", padx=(0, 12))
+        ttk.Checkbutton(control_frame, text="仅显示已保存", variable=self.pattern_saved_only_var, command=self.refresh_pattern_view).grid(row=0, column=2, padx=(0, 12))
+        self.pattern_refresh_button = ttk.Button(control_frame, text="刷新网站索引", command=self.refresh_pattern_index_async)
+        self.pattern_refresh_button.grid(row=0, column=3, padx=(0, 8))
+        self.pattern_download_button = ttk.Button(control_frame, text="下载选中设计图", command=self.download_selected_pattern_async)
+        self.pattern_download_button.grid(row=0, column=4, padx=(0, 8))
+        self.pattern_import_button = ttk.Button(control_frame, text="导入本地图案", command=self.import_local_patterns)
+        self.pattern_import_button.grid(row=0, column=5, padx=(0, 8))
+        ttk.Button(control_frame, text="打开图案目录", command=self.open_patterns_folder).grid(row=0, column=6)
+
+        paned = ttk.Panedwindow(self.patterns_tab, orient="horizontal")
+        paned.grid(row=1, column=0, sticky="nsew")
+        left_frame = ttk.Frame(paned)
+        right_frame = ttk.Frame(paned, padding=(12, 4))
+        left_frame.columnconfigure(0, weight=1)
+        left_frame.rowconfigure(0, weight=1)
+        right_frame.columnconfigure(0, weight=1)
+        paned.add(left_frame, weight=4)
+        paned.add(right_frame, weight=3)
+
+        self.pattern_tree = ttk.Treeview(
+            left_frame,
+            columns=("title", "creator", "type", "saved"),
+            show="headings",
+            selectmode="browse",
+        )
+        self.pattern_tree.heading("title", text="名称")
+        self.pattern_tree.heading("creator", text="作者")
+        self.pattern_tree.heading("type", text="类型")
+        self.pattern_tree.heading("saved", text="已保存")
+        self.pattern_tree.column("title", width=280, anchor="w")
+        self.pattern_tree.column("creator", width=180, anchor="w")
+        self.pattern_tree.column("type", width=140, anchor="w")
+        self.pattern_tree.column("saved", width=90, anchor="center")
+        p_vscroll = ttk.Scrollbar(left_frame, orient="vertical", command=self.pattern_tree.yview)
+        self.pattern_tree.configure(yscrollcommand=p_vscroll.set)
+        self.pattern_tree.grid(row=0, column=0, sticky="nsew")
+        p_vscroll.grid(row=0, column=1, sticky="ns")
+
+        self.pattern_preview_label = ttk.Label(right_frame, text="暂无预览", anchor="center", relief="solid", width=28)
+        self.pattern_preview_label.grid(row=0, column=0, sticky="nw")
+        ttk.Label(right_frame, textvariable=self.pattern_title_var, style="LargeValue.TLabel", wraplength=520, justify="left").grid(row=1, column=0, sticky="w", pady=(10, 0))
+        ttk.Label(right_frame, textvariable=self.pattern_creator_var, style="Value.TLabel", wraplength=520, justify="left").grid(row=2, column=0, sticky="w", pady=(4, 0))
+        ttk.Label(right_frame, textvariable=self.pattern_type_var, style="Value.TLabel", wraplength=520, justify="left").grid(row=3, column=0, sticky="w", pady=(4, 0))
+        ttk.Label(right_frame, textvariable=self.pattern_tags_var, style="Value.TLabel", wraplength=520, justify="left").grid(row=4, column=0, sticky="w", pady=(4, 0))
+        ttk.Label(right_frame, textvariable=self.pattern_saved_var, style="Value.TLabel", wraplength=520, justify="left").grid(row=5, column=0, sticky="w", pady=(4, 0))
+
+        ttk.Label(right_frame, text="图案说明", style="Header.TLabel").grid(row=6, column=0, sticky="w", pady=(12, 4))
+        self.pattern_details_text = ScrolledText(right_frame, height=14, wrap="word")
+        self.pattern_details_text.grid(row=7, column=0, sticky="nsew")
+        self.pattern_details_text.configure(state="disabled")
+        right_frame.rowconfigure(7, weight=1)
+
     def bind_events(self) -> None:
         self.search_var.trace_add("write", lambda *_: self.schedule_filter())
         self.category_combo.bind("<<ComboboxSelected>>", lambda *_: self.apply_filters())
@@ -590,6 +673,8 @@ class OfflineAssistantApp:
         self.encyclopedia_combo.bind("<<ComboboxSelected>>", lambda *_: self.refresh_encyclopedia_view())
         self.encyclopedia_search_var.trace_add("write", lambda *_: self.refresh_encyclopedia_view())
         self.encyclopedia_tree.bind("<<TreeviewSelect>>", self.on_encyclopedia_selection)
+        self.pattern_search_var.trace_add("write", lambda *_: self.refresh_pattern_view())
+        self.pattern_tree.bind("<<TreeviewSelect>>", self.on_pattern_selection)
         self.root.bind("<Control-f>", self.focus_search)
         self.root.bind("<F5>", lambda *_: self.reload_database())
 
@@ -627,6 +712,7 @@ class OfflineAssistantApp:
 
         self.data = loaded
         self.knowledge_base = knowledge_base
+        self.pattern_repository = PatternRepository(db_path)
         self.translation_map = build_translation_map(loaded.records)
         self.path_var.set(str(db_path))
         self.cache_var.set(knowledge_base.summary_stats())
@@ -647,6 +733,7 @@ class OfflineAssistantApp:
 
         self.apply_filters()
         self.refresh_encyclopedia_view()
+        self.refresh_pattern_view()
 
     def clear_filters(self) -> None:
         self.search_var.set("")
@@ -885,12 +972,166 @@ class OfflineAssistantApp:
     def copy_encyclopedia_chinese(self) -> None:
         self.copy_to_clipboard(self.encyclopedia_chinese_var.get(), "已复制百科中文对照")
 
+    def refresh_pattern_view(self) -> None:
+        if self.pattern_repository is None:
+            return
+        entries = self.pattern_repository.list_patterns(
+            query=self.pattern_search_var.get(),
+            saved_only=self.pattern_saved_only_var.get(),
+        )
+        self.pattern_visible_entries = entries
+        self.pattern_tree.delete(*self.pattern_tree.get_children())
+        for index, entry in enumerate(entries):
+            self.pattern_tree.insert(
+                "",
+                "end",
+                iid=str(index),
+                values=(
+                    entry.title,
+                    entry.creator or "Unknown",
+                    entry.pattern_type or "-",
+                    "是" if entry.is_saved else "否",
+                ),
+            )
+        if entries:
+            self.pattern_tree.selection_set("0")
+            self.pattern_tree.focus("0")
+            self.update_pattern_detail(entries[0])
+        else:
+            self.clear_pattern_detail()
+
+    def clear_pattern_detail(self) -> None:
+        self.pattern_title_var.set("-")
+        self.pattern_creator_var.set("-")
+        self.pattern_type_var.set("-")
+        self.pattern_tags_var.set("-")
+        self.pattern_saved_var.set("-")
+        self.pattern_preview_ref = None
+        self.pattern_preview_label.configure(image="", text="暂无预览")
+        set_text_widget(self.pattern_details_text, "")
+
+    def update_pattern_detail(self, entry: PatternEntry) -> None:
+        self.pattern_title_var.set(entry.title or "-")
+        self.pattern_creator_var.set(f"作者：{entry.creator or 'Unknown'}")
+        self.pattern_type_var.set(f"类型：{entry.pattern_type or '-'}")
+        self.pattern_tags_var.set(f"标签：{entry.tags or '-'}")
+        self.pattern_saved_var.set(f"已保存：{'是' if entry.is_saved else '否'}")
+
+        details = []
+        if entry.nhd_url:
+            details.append(f"NHD：{entry.nhd_url}")
+        if entry.acnl_url:
+            details.append(f"ACNL：{entry.acnl_url}")
+        if entry.qr_url:
+            details.append(f"QR：{entry.qr_url}")
+        if entry.source_url:
+            details.append(f"来源：{entry.source_url}")
+        set_text_widget(self.pattern_details_text, "\n".join(details))
+
+        preview_entry = self.pattern_repository.ensure_preview_cached(entry.id) if self.pattern_repository else entry
+        preview_path = self.pattern_repository.image_path(preview_entry.preview_rel_path) if self.pattern_repository else None
+        image = load_photo_image(preview_path, max_size=220)
+        self.pattern_preview_ref = image
+        if image is not None:
+            self.pattern_preview_label.configure(image=image, text="")
+        else:
+            self.pattern_preview_label.configure(image="", text="暂无预览")
+
+    def on_pattern_selection(self, _event=None) -> None:
+        selection = self.pattern_tree.selection()
+        if not selection:
+            return
+        index = int(selection[0])
+        if 0 <= index < len(self.pattern_visible_entries):
+            self.update_pattern_detail(self.pattern_visible_entries[index])
+
+    def _run_pattern_task(self, task_name: str, callback) -> None:
+        if self.pattern_thread is not None and self.pattern_thread.is_alive():
+            messagebox.showinfo(APP_TITLE, "当前已有设计图任务在运行，请稍候。")
+            return
+
+        def worker() -> None:
+            try:
+                result = callback()
+                self.pattern_queue.put(("done", task_name, result))
+            except Exception as exc:  # pragma: no cover
+                self.pattern_queue.put(("error", task_name, str(exc)))
+
+        self.pattern_thread = threading.Thread(target=worker, daemon=True)
+        self.pattern_thread.start()
+
+    def refresh_pattern_index_async(self) -> None:
+        if self.pattern_repository is None:
+            return
+        self.status_var.set("正在刷新设计图网站索引...")
+        self._run_pattern_task("refresh-index", lambda: self.pattern_repository.refresh_site_index())
+
+    def download_selected_pattern_async(self) -> None:
+        if self.pattern_repository is None:
+            return
+        selection = self.pattern_tree.selection()
+        if not selection:
+            return
+        index = int(selection[0])
+        if not (0 <= index < len(self.pattern_visible_entries)):
+            return
+        entry = self.pattern_visible_entries[index]
+        self.status_var.set(f"正在下载设计图：{entry.title}")
+        self._run_pattern_task("download-pattern", lambda: self.pattern_repository.download_pattern(entry.id))
+
+    def import_local_patterns(self) -> None:
+        if self.pattern_repository is None:
+            return
+        file_paths = filedialog.askopenfilenames(
+            title="导入本地图案文件",
+            filetypes=(("Pattern Files", "*.nhd *.acnl *.png"), ("All Files", "*.*")),
+        )
+        if not file_paths:
+            return
+        inserted = self.pattern_repository.import_pattern_files([Path(path) for path in file_paths])
+        self.refresh_pattern_view()
+        self.status_var.set(f"已导入 {inserted} 个本地图案文件")
+
+    def open_patterns_folder(self) -> None:
+        if self.pattern_repository is None:
+            return
+        folder = self.pattern_repository.patterns_dir
+        if sys.platform.startswith("win"):
+            Path(folder).mkdir(parents=True, exist_ok=True)
+            import os
+            os.startfile(folder)  # type: ignore[attr-defined]
+
+    def poll_pattern_queue(self) -> None:
+        try:
+            while True:
+                message_type, task_name, payload = self.pattern_queue.get_nowait()
+                if message_type == "done":
+                    if task_name == "refresh-index":
+                        self.refresh_pattern_view()
+                        self.status_var.set(f"设计图索引刷新完成，共 {payload} 条")
+                    elif task_name == "download-pattern":
+                        self.refresh_pattern_view()
+                        self.status_var.set(f"已下载设计图：{payload.title}")
+                elif message_type == "error":
+                    self.status_var.set("设计图操作失败")
+                    messagebox.showerror(APP_TITLE, f"设计图任务失败：\n{payload}")
+        except queue.Empty:
+            pass
+        self.root.after(200, self.poll_pattern_queue)
+
 
 def build_self_test_summary(db_path: Path | None) -> dict[str, object]:
     summary: dict[str, object] = {"database_path": str(db_path) if db_path else "", "exists": bool(db_path and db_path.exists())}
     if db_path and db_path.exists():
         loaded = load_database_items(db_path)
         knowledge_base = KnowledgeBase(db_path)
+        with open_connection(db_path) as connection:
+            try:
+                pattern_count = connection.execute("SELECT COUNT(*) FROM pattern_entries").fetchone()[0]
+                saved_pattern_count = connection.execute("SELECT COUNT(*) FROM pattern_entries WHERE is_saved = 1").fetchone()[0]
+            except sqlite3.OperationalError:
+                pattern_count = 0
+                saved_pattern_count = 0
         summary.update(
             {
                 "items_rows": len(loaded.records),
@@ -898,6 +1139,8 @@ def build_self_test_summary(db_path: Path | None) -> dict[str, object]:
                 "kind_count": len(loaded.kind_counts),
                 "meta": knowledge_base.meta,
                 "section_counts": {section_id: len(entries) for section_id, entries in knowledge_base.encyclopedia.items()},
+                "pattern_count": pattern_count,
+                "saved_pattern_count": saved_pattern_count,
             }
         )
     return summary

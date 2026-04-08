@@ -68,6 +68,15 @@ if (Test-Path $seedDbPath) {
 }
 Invoke-Step -Label "Build SQLite database" -Command $dbCommand
 
+$databasePath = Join-Path $dataPath "animal_crossing_offline.db"
+$patternCommand = "from pathlib import Path; from pattern_support import PatternRepository; repo = PatternRepository(Path(r'$databasePath')); print(repo.refresh_site_index())"
+Invoke-Step -Label "Preload pattern index" -Command @(
+    "py",
+    "-$PythonVersion",
+    "-c",
+    $patternCommand
+)
+
 if (Test-Path $distPath) {
     Remove-Item -LiteralPath $distPath -Recurse -Force
 }

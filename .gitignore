@@ -7,3 +7,5 @@ offline_cache_test/
 items.csv
 selftest-*.json
 legacy_seed.db
+data/patterns/
+dist/data/patterns/
