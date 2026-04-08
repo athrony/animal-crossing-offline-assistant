@@ -369,6 +369,11 @@ class OfflineAssistantApp:
         self.path_var = tk.StringVar(value="尚未加载数据库")
         self.cache_var = tk.StringVar(value="准备就绪")
         self.status_var = tk.StringVar(value="准备就绪")
+        self.page_title_var = tk.StringVar(value="物品资料库")
+        self.page_subtitle_var = tk.StringVar(value="浏览、搜索并查看动森物品资料")
+        self.page_status_var = tk.StringVar(value="等待加载")
+        self.stat_titles = [tk.StringVar(value=""), tk.StringVar(value=""), tk.StringVar(value="")]
+        self.stat_values = [tk.StringVar(value="-"), tk.StringVar(value="-"), tk.StringVar(value="-")]
 
         self.detail_id_var = tk.StringVar(value="-")
         self.detail_english_var = tk.StringVar(value="-")
@@ -560,16 +565,13 @@ class OfflineAssistantApp:
 
     def build_ui(self) -> None:
         self.current_page_key = "items"
-        self.page_title_var = tk.StringVar(value="?????")
-        self.page_subtitle_var = tk.StringVar(value="??????????????")
-        self.page_status_var = tk.StringVar(value="???????")
-        self.sidebar_buttons: dict[str, tk.Button] = {}
-        self.page_tabs: dict[str, ttk.Frame] = {}
         self.page_meta = {
             "items": ("?????", "??????????????"),
             "encyclopedia": ("????", "????????????"),
             "patterns": ("?????", "??????????????"),
         }
+        self.sidebar_buttons: dict[str, tk.Button] = {}
+        self.page_tabs: dict[str, ttk.Frame] = {}
 
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
@@ -588,6 +590,7 @@ class OfflineAssistantApp:
         sidebar.grid(row=0, column=0, sticky="nsw")
         sidebar.grid_propagate(False)
         sidebar.columnconfigure(0, weight=1)
+        sidebar.rowconfigure(2, weight=1)
 
         brand = tk.Frame(sidebar, bg="#211833")
         brand.grid(row=0, column=0, sticky="ew", padx=18, pady=(20, 14))
@@ -605,42 +608,38 @@ class OfflineAssistantApp:
         nav = tk.Frame(sidebar, bg="#211833")
         nav.grid(row=2, column=0, sticky="nsew", padx=12)
         nav.columnconfigure(0, weight=1)
-        sidebar.rowconfigure(2, weight=1)
-
-        for index, (key, title) in enumerate([
-            ("items", "???"),
-            ("encyclopedia", "????"),
-            ("patterns", "???"),
-        ]):
+        for index, (key, title) in enumerate([("items", "???"), ("encyclopedia", "????"), ("patterns", "???")]):
             button = tk.Button(
                 nav,
                 text=title,
                 anchor="w",
                 relief="flat",
                 bd=0,
-                fg="#f6edff",
+                fg="#d9cdf5",
                 bg="#211833",
                 activebackground="#5b47a5",
                 activeforeground="#ffffff",
-                font=("Microsoft YaHei UI", 11, "bold" if key == "items" else "normal"),
+                font=("Microsoft YaHei UI", 10),
                 padx=18,
                 pady=12,
                 command=lambda page_key=key: self.show_page(page_key),
                 cursor="hand2",
             )
             button.grid(row=index, column=0, sticky="ew", pady=4)
+            button.bind("<Enter>", lambda _event, page_key=key: self.on_sidebar_hover(page_key, True))
+            button.bind("<Leave>", lambda _event, page_key=key: self.on_sidebar_hover(page_key, False))
             self.sidebar_buttons[key] = button
 
         sidebar_actions = tk.Frame(sidebar, bg="#211833")
         sidebar_actions.grid(row=3, column=0, sticky="ew", padx=18, pady=(8, 18))
+        sidebar_actions.columnconfigure(0, weight=1)
         ttk.Button(sidebar_actions, text="?????", command=self.choose_database, style="Ghost.TButton").grid(row=0, column=0, sticky="ew", pady=(0, 8))
         ttk.Button(sidebar_actions, text="?????", command=self.reload_database, style="Accent.TButton").grid(row=1, column=0, sticky="ew")
-        sidebar_actions.columnconfigure(0, weight=1)
 
         content = tk.Frame(shell, bg="#30264b")
         content.grid(row=0, column=1, sticky="nsew")
         content.columnconfigure(0, weight=1)
-        content.rowconfigure(1, weight=1)
+        content.rowconfigure(2, weight=1)
 
         header = tk.Frame(content, bg="#30264b")
         header.grid(row=0, column=0, sticky="ew", padx=20, pady=(18, 10))
@@ -664,11 +663,19 @@ class OfflineAssistantApp:
         self.page_chip = tk.Label(info_strip, textvariable=self.page_status_var, fg="#c7fbff", bg="#473572", padx=14, pady=8, font=("Microsoft YaHei UI", 9))
         self.page_chip.grid(row=0, column=1, sticky="e")
 
+        stats_row = tk.Frame(content, bg="#30264b")
+        stats_row.grid(row=2, column=0, sticky="ew", padx=20, pady=(0, 12))
+        for i in range(3):
+            stats_row.columnconfigure(i, weight=1)
+            card = tk.Frame(stats_row, bg="#3a2f5a", highlightthickness=1, highlightbackground="#4b3a72")
+            card.grid(row=0, column=i, sticky="ew", padx=(0 if i == 0 else 8, 0), ipadx=6, ipady=4)
+            tk.Label(card, textvariable=self.stat_titles[i], fg="#b9a8e7", bg="#3a2f5a", font=("Microsoft YaHei UI", 9)).grid(row=0, column=0, sticky="w", padx=14, pady=(10, 2))
+            tk.Label(card, textvariable=self.stat_values[i], fg="#ffffff", bg="#3a2f5a", font=("Microsoft YaHei UI", 17, "bold")).grid(row=1, column=0, sticky="w", padx=14, pady=(0, 10))
+
         content_card = tk.Frame(content, bg="#2d2344", highlightthickness=1, highlightbackground="#4a3a72")
-        content_card.grid(row=2, column=0, sticky="nsew", padx=20, pady=(0, 20))
+        content_card.grid(row=3, column=0, sticky="nsew", padx=20, pady=(0, 20))
         content_card.columnconfigure(0, weight=1)
         content_card.rowconfigure(0, weight=1)
-        content.rowconfigure(2, weight=1)
 
         self.notebook = ttk.Notebook(content_card, style="SidebarNotebook")
         self.notebook.grid(row=0, column=0, sticky="nsew", padx=8, pady=8)
@@ -679,28 +686,54 @@ class OfflineAssistantApp:
         self.notebook.add(self.items_tab, text="????")
         self.notebook.add(self.encyclopedia_tab, text="????")
         self.notebook.add(self.patterns_tab, text="???")
-        self.page_tabs = {
-            "items": self.items_tab,
-            "encyclopedia": self.encyclopedia_tab,
-            "patterns": self.patterns_tab,
-        }
+        self.page_tabs = {"items": self.items_tab, "encyclopedia": self.encyclopedia_tab, "patterns": self.patterns_tab}
 
         self.build_items_tab()
         self.build_encyclopedia_tab()
         self.build_patterns_tab()
         self.show_page("items")
 
-        status_bar = tk.Label(
-            outer,
-            textvariable=self.status_var,
-            fg="#d7caef",
-            bg="#1a1428",
-            anchor="w",
-            padx=14,
-            pady=8,
-            font=("Microsoft YaHei UI", 9),
-        )
+        status_bar = tk.Label(outer, textvariable=self.status_var, fg="#d7caef", bg="#1a1428", anchor="w", padx=14, pady=8, font=("Microsoft YaHei UI", 9))
         status_bar.grid(row=1, column=0, sticky="ew", padx=22, pady=(0, 18))
+
+    def on_sidebar_hover(self, page_key: str, is_hover: bool) -> None:
+        if page_key == self.current_page_key:
+            return
+        button = self.sidebar_buttons.get(page_key)
+        if button is None:
+            return
+        button.configure(bg="#342852" if is_hover else "#211833")
+
+    def update_dashboard_stats(self) -> None:
+        if self.current_page_key == "items" and self.data is not None:
+            self.stat_titles[0].set("????")
+            self.stat_values[0].set(str(len(self.data.records)))
+            self.stat_titles[1].set("????")
+            self.stat_values[1].set(str(len(self.visible_records)))
+            self.stat_titles[2].set("????")
+            self.stat_values[2].set(str(len(self.data.category_counts)))
+        elif self.current_page_key == "encyclopedia" and self.knowledge_base is not None:
+            total_entries = sum(len(v) for v in self.knowledge_base.encyclopedia.values())
+            chinese_entries = sum(1 for entries in self.knowledge_base.encyclopedia.values() for entry in entries if self.resolve_encyclopedia_chinese_title(entry))
+            self.stat_titles[0].set("????")
+            self.stat_values[0].set(str(total_entries))
+            self.stat_titles[1].set("????")
+            self.stat_values[1].set(str(chinese_entries))
+            self.stat_titles[2].set("????")
+            self.stat_values[2].set(str(len(self.encyclopedia_visible_entries)))
+        elif self.current_page_key == "patterns" and self.pattern_repository is not None:
+            total_patterns = len(self.pattern_visible_entries)
+            saved_patterns = sum(1 for entry in self.pattern_visible_entries if entry.is_saved)
+            self.stat_titles[0].set("?????")
+            self.stat_values[0].set(str(total_patterns))
+            self.stat_titles[1].set("???")
+            self.stat_values[1].set(str(saved_patterns))
+            self.stat_titles[2].set("????")
+            self.stat_values[2].set("??")
+        else:
+            for index, title in enumerate(["???", "???", "???"]):
+                self.stat_titles[index].set(title)
+                self.stat_values[index].set("-")
 
     def show_page(self, page_key: str) -> None:
         if page_key not in self.page_tabs:
@@ -712,20 +745,22 @@ class OfflineAssistantApp:
         self.page_subtitle_var.set(subtitle)
 
         if page_key == "items" and self.data is not None:
-            badge = f"?? {len(self.data.records)} ?"
+            badge = f"?? {len(self.visible_records) if self.visible_records else len(self.data.records)} / {len(self.data.records)}"
         elif page_key == "encyclopedia" and self.knowledge_base is not None:
-            badge = f"?? {sum(len(v) for v in self.knowledge_base.encyclopedia.values())} ?"
+            badge = f"?? {len(self.encyclopedia_visible_entries)} ?"
         elif page_key == "patterns" and self.pattern_repository is not None:
-            badge = f"??? {len(self.pattern_visible_entries) if self.pattern_visible_entries else 0} ?"
+            badge = f"??? {len(self.pattern_visible_entries)} ?"
         else:
             badge = "????"
         self.page_status_var.set(badge)
+        self.update_dashboard_stats()
 
         for key, button in self.sidebar_buttons.items():
             if key == page_key:
                 button.configure(bg="#5b47a5", fg="#ffffff", font=("Microsoft YaHei UI", 11, "bold"))
             else:
                 button.configure(bg="#211833", fg="#d9cdf5", font=("Microsoft YaHei UI", 10))
+
     def build_items_tab(self) -> None:
         self.items_tab.columnconfigure(0, weight=1)
         self.items_tab.rowconfigure(1, weight=1)
