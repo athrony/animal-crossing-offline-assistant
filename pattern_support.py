@@ -461,14 +461,26 @@ class PatternRepository:
             preview_rel_path = entry.preview_rel_path
             qr_rel_path = entry.qr_rel_path
 
-            if entry.nhd_url:
+            if nhd_rel_path and not (self.data_dir / nhd_rel_path).exists():
+                nhd_rel_path = ""
+            if acnl_rel_path and not (self.data_dir / acnl_rel_path).exists():
+                acnl_rel_path = ""
+            if preview_rel_path and not (self.data_dir / preview_rel_path).exists():
+                preview_rel_path = ""
+            if qr_rel_path and not (self.data_dir / qr_rel_path).exists():
+                qr_rel_path = ""
+
+            if not nhd_rel_path and entry.nhd_url:
                 nhd_rel_path = self._download_to(entry.nhd_url, self.downloads_dir / Path(entry.nhd_url).name)
-            if entry.acnl_url:
+            if not acnl_rel_path and entry.acnl_url:
                 acnl_rel_path = self._download_to(entry.acnl_url, self.downloads_dir / Path(entry.acnl_url).name)
             if entry.preview_url and not preview_rel_path:
                 preview_rel_path = self._download_to(entry.preview_url, self.previews_dir / f"{entry.id}_{Path(entry.preview_url).name}")
             if entry.qr_url and not qr_rel_path:
                 qr_rel_path = self._download_to(entry.qr_url, self.qr_dir / f"{entry.id}_{Path(entry.qr_url).name}")
+
+            if not nhd_rel_path:
+                raise ValueError("This pattern does not provide an NHD/NHPD file.")
 
             connection.execute(
                 """

@@ -665,11 +665,6 @@ class OfflineAssistantApp:
             button.bind("<Leave>", lambda _event, page_key=key: self.on_sidebar_hover(page_key, False))
             self.sidebar_buttons[key] = button
 
-        sidebar_actions = tk.Frame(sidebar, bg="#211833")
-        sidebar_actions.grid(row=3, column=0, sticky="ew", padx=18, pady=(8, 18))
-        sidebar_actions.columnconfigure(0, weight=1)
-        ttk.Button(sidebar_actions, text="打开数据库", command=self.choose_database, style="Ghost.TButton").grid(row=0, column=0, sticky="ew", pady=(0, 8))
-        ttk.Button(sidebar_actions, text="刷新数据库", command=self.reload_database, style="Accent.TButton").grid(row=1, column=0, sticky="ew")
 
         content = tk.Frame(shell, bg="#30264b")
         content.grid(row=0, column=1, sticky="nsew")
@@ -684,11 +679,6 @@ class OfflineAssistantApp:
         title_block.grid(row=0, column=0, sticky="w")
         tk.Label(title_block, textvariable=self.page_title_var, fg="#f8f2ff", bg="#30264b", font=("Microsoft YaHei UI", 24, "bold")).grid(row=0, column=0, sticky="w")
         tk.Label(title_block, textvariable=self.page_subtitle_var, fg="#bcaee4", bg="#30264b", font=("Microsoft YaHei UI", 10)).grid(row=1, column=0, sticky="w", pady=(4, 0))
-
-        top_actions = tk.Frame(header, bg="#30264b")
-        top_actions.grid(row=0, column=1, sticky="e")
-        ttk.Button(top_actions, text="打开数据库", command=self.choose_database, style="Ghost.TButton").grid(row=0, column=0, padx=(0, 8))
-        ttk.Button(top_actions, text="重新载入", command=self.reload_database, style="Accent.TButton").grid(row=0, column=1)
 
         info_strip = tk.Frame(content, bg="#30264b")
         info_strip.grid(row=1, column=0, sticky="ew", padx=20, pady=(0, 10))
@@ -994,12 +984,12 @@ class OfflineAssistantApp:
         paned = ttk.Panedwindow(self.patterns_tab, orient="horizontal")
         paned.grid(row=1, column=0, sticky="nsew")
         left_frame = ttk.Frame(paned)
-        right_frame = ttk.Frame(paned, padding=(12, 4))
+        right_frame = ttk.Frame(paned, padding=(10, 4), width=360)
         left_frame.columnconfigure(0, weight=1)
         left_frame.rowconfigure(1, weight=1)
         right_frame.columnconfigure(0, weight=1)
-        paned.add(left_frame, weight=4)
-        paned.add(right_frame, weight=3)
+        paned.add(left_frame, weight=5)
+        paned.add(right_frame, weight=2)
 
         pager = ttk.Frame(left_frame, style="Shell.TFrame")
         pager.grid(row=0, column=0, sticky="ew", pady=(0, 8))
@@ -1018,26 +1008,54 @@ class OfflineAssistantApp:
         p_vscroll = ttk.Scrollbar(gallery_card, orient="vertical", command=self.pattern_canvas.yview)
         p_vscroll.grid(row=0, column=1, sticky="ns")
         self.pattern_canvas.configure(yscrollcommand=p_vscroll.set)
+        self.bind_pattern_scroll(self.pattern_canvas)
 
         self.pattern_grid_frame = tk.Frame(self.pattern_canvas, bg="#241b38")
         self.pattern_grid_window = self.pattern_canvas.create_window((0, 0), window=self.pattern_grid_frame, anchor="nw")
         self.pattern_grid_frame.bind("<Configure>", lambda _event: self.pattern_canvas.configure(scrollregion=self.pattern_canvas.bbox("all")))
         self.pattern_canvas.bind("<Configure>", lambda event: self.pattern_canvas.itemconfigure(self.pattern_grid_window, width=event.width))
+        self.bind_pattern_scroll(self.pattern_grid_frame)
 
-        self.pattern_preview_label = ttk.Label(right_frame, text="暂无预览", anchor="center", relief="solid", width=28)
+        pattern_wraplength = 360
+        self.pattern_preview_label = ttk.Label(right_frame, text="暂无预览", anchor="center", relief="solid", width=22)
         self.pattern_preview_label.grid(row=0, column=0, sticky="nw")
-        ttk.Label(right_frame, textvariable=self.pattern_title_var, style="LargeValue.TLabel", wraplength=520, justify="left").grid(row=1, column=0, sticky="w", pady=(10, 0))
-        ttk.Label(right_frame, textvariable=self.pattern_creator_var, style="Value.TLabel", wraplength=520, justify="left").grid(row=2, column=0, sticky="w", pady=(4, 0))
-        ttk.Label(right_frame, textvariable=self.pattern_type_var, style="Value.TLabel", wraplength=520, justify="left").grid(row=3, column=0, sticky="w", pady=(4, 0))
-        ttk.Label(right_frame, textvariable=self.pattern_tags_var, style="Value.TLabel", wraplength=520, justify="left").grid(row=4, column=0, sticky="w", pady=(4, 0))
-        ttk.Label(right_frame, textvariable=self.pattern_saved_var, style="Value.TLabel", wraplength=520, justify="left").grid(row=5, column=0, sticky="w", pady=(4, 0))
+        ttk.Label(right_frame, textvariable=self.pattern_title_var, style="LargeValue.TLabel", wraplength=pattern_wraplength, justify="left").grid(row=1, column=0, sticky="w", pady=(10, 0))
+        ttk.Label(right_frame, textvariable=self.pattern_creator_var, style="Value.TLabel", wraplength=pattern_wraplength, justify="left").grid(row=2, column=0, sticky="w", pady=(4, 0))
+        ttk.Label(right_frame, textvariable=self.pattern_type_var, style="Value.TLabel", wraplength=pattern_wraplength, justify="left").grid(row=3, column=0, sticky="w", pady=(4, 0))
+        ttk.Label(right_frame, textvariable=self.pattern_tags_var, style="Value.TLabel", wraplength=pattern_wraplength, justify="left").grid(row=4, column=0, sticky="w", pady=(4, 0))
+        ttk.Label(right_frame, textvariable=self.pattern_saved_var, style="Value.TLabel", wraplength=pattern_wraplength, justify="left").grid(row=5, column=0, sticky="w", pady=(4, 0))
 
         ttk.Label(right_frame, text="图案说明", style="Header.TLabel").grid(row=6, column=0, sticky="w", pady=(12, 4))
-        self.pattern_details_text = ScrolledText(right_frame, height=14, wrap="word")
+        self.pattern_details_text = ScrolledText(right_frame, height=10, wrap="word")
         self.pattern_details_text.grid(row=7, column=0, sticky="nsew")
         style_text_widget(self.pattern_details_text)
         self.pattern_details_text.configure(state="disabled")
         right_frame.rowconfigure(7, weight=1)
+
+    def bind_pattern_scroll(self, widget: tk.Misc) -> None:
+        widget.bind("<MouseWheel>", self.on_pattern_mousewheel, add="+")
+        widget.bind("<Button-4>", self.on_pattern_mousewheel, add="+")
+        widget.bind("<Button-5>", self.on_pattern_mousewheel, add="+")
+
+    def on_pattern_mousewheel(self, event: tk.Event) -> str | None:
+        if self.current_page_key != "patterns":
+            return None
+        if not hasattr(self, "pattern_canvas"):
+            return None
+
+        if getattr(event, "num", None) == 4:
+            units = -1
+        elif getattr(event, "num", None) == 5:
+            units = 1
+        elif getattr(event, "delta", 0) > 0:
+            units = -1
+        elif getattr(event, "delta", 0) < 0:
+            units = 1
+        else:
+            return None
+
+        self.pattern_canvas.yview_scroll(units, "units")
+        return "break"
 
     def build_tools_tab(self) -> None:
         self.tools_tab.columnconfigure(0, weight=1)
@@ -1483,8 +1501,8 @@ class OfflineAssistantApp:
             preview_path = self.pattern_repository.image_path(preview_entry.preview_rel_path) if self.pattern_repository else None
             image = load_photo_image(
                 preview_path,
-                max_size=148 if get_pattern_collection(entry) == "simple" else 128,
-                scale_up=2 if get_pattern_collection(entry) == "simple" else 1,
+                max_size=192 if get_pattern_collection(entry) == "simple" else 128,
+                scale_up=4 if get_pattern_collection(entry) == "simple" else 1,
             )
             self.pattern_card_images.append(image)
             has_acnl = pattern_has_acnl(entry)
@@ -1533,6 +1551,9 @@ class OfflineAssistantApp:
                 command=(lambda selected_entry=entry: self.export_pattern_as_nhd_async(selected_entry)) if has_nhd else None,
             )
             nhd_button.grid(row=0, column=1, sticky="ew", padx=(4, 0))
+
+            for widget in (card, preview_label, title_label, format_row, acnl_button, nhd_button):
+                self.bind_pattern_scroll(widget)
 
             for widget in (card, title_label):
                 widget.bind("<Button-1>", lambda _event, selected_entry=entry: self.select_pattern_entry(selected_entry))
@@ -1778,7 +1799,7 @@ class OfflineAssistantApp:
         entry = self.pattern_repository.ensure_preview_cached(self.selected_pattern_entry.id)
         preview_path = self.pattern_repository.image_path(entry.preview_rel_path)
         if preview_path is None or not preview_path.exists():
-            messagebox.showinfo(APP_TITLE, "当前设计图没有可用的 ACNL 文件。")
+            messagebox.showinfo(APP_TITLE, "当前设计图没有可用的预览图。")
             return
         if sys.platform.startswith("win"):
             import os
