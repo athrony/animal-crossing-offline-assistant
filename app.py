@@ -438,8 +438,8 @@ class OfflineAssistantApp:
         style.configure("LargeValue.TLabel", background=surface, foreground=text_main, font=("Microsoft YaHei UI", 13, "bold"))
         style.configure("Card.TLabelframe", background=surface, bordercolor=border, relief="solid")
         style.configure("Card.TLabelframe.Label", background=surface, foreground=text_main, font=("Microsoft YaHei UI", 10, "bold"))
-        style.configure("SidebarNotebook", background=surface, borderwidth=0, tabmargins=[0, 0, 0, 0])
-        style.layout("SidebarNotebook.Tab", [])
+        style.configure("Sidebar.TNotebook", background=surface, borderwidth=0, tabmargins=[0, 0, 0, 0])
+        style.layout("Sidebar.TNotebook.Tab", [])
 
         style.configure(
             "TButton",
@@ -566,9 +566,9 @@ class OfflineAssistantApp:
     def build_ui(self) -> None:
         self.current_page_key = "items"
         self.page_meta = {
-            "items": ("?????", "??????????????"),
-            "encyclopedia": ("????", "????????????"),
-            "patterns": ("?????", "??????????????"),
+            "items": ("物品资料库", "浏览、搜索并查看动森物品资料"),
+            "encyclopedia": ("离线百科", "按分类浏览百科与图鉴内容"),
+            "patterns": ("设计图中心", "浏览、下载并整理设计图案资源"),
         }
         self.sidebar_buttons: dict[str, tk.Button] = {}
         self.page_tabs: dict[str, ttk.Frame] = {}
@@ -596,19 +596,19 @@ class OfflineAssistantApp:
         brand.grid(row=0, column=0, sticky="ew", padx=18, pady=(20, 14))
         brand.columnconfigure(0, weight=1)
         tk.Label(brand, text="ACNH", fg="#f8f2ff", bg="#211833", font=("Microsoft YaHei UI", 22, "bold")).grid(row=0, column=0, sticky="w")
-        tk.Label(brand, text="????", fg="#bcaee4", bg="#211833", font=("Microsoft YaHei UI", 11)).grid(row=1, column=0, sticky="w", pady=(2, 0))
+        tk.Label(brand, text="离线助手", fg="#bcaee4", bg="#211833", font=("Microsoft YaHei UI", 11)).grid(row=1, column=0, sticky="w", pady=(2, 0))
 
         profile = tk.Frame(sidebar, bg="#2d2344", highlightthickness=1, highlightbackground="#4a3a72")
         profile.grid(row=1, column=0, sticky="ew", padx=18, pady=(0, 12))
         profile.columnconfigure(0, weight=1)
-        tk.Label(profile, text="?????", fg="#f4ebff", bg="#2d2344", font=("Microsoft YaHei UI", 11, "bold")).grid(row=0, column=0, sticky="w", padx=14, pady=(12, 2))
+        tk.Label(profile, text="本地数据库", fg="#f4ebff", bg="#2d2344", font=("Microsoft YaHei UI", 11, "bold")).grid(row=0, column=0, sticky="w", padx=14, pady=(12, 2))
         tk.Label(profile, textvariable=self.path_var, fg="#bcaee4", bg="#2d2344", wraplength=208, justify="left", font=("Microsoft YaHei UI", 9)).grid(row=1, column=0, sticky="w", padx=14)
         tk.Label(profile, textvariable=self.cache_var, fg="#8df0ff", bg="#2d2344", wraplength=208, justify="left", font=("Microsoft YaHei UI", 9)).grid(row=2, column=0, sticky="w", padx=14, pady=(8, 12))
 
         nav = tk.Frame(sidebar, bg="#211833")
         nav.grid(row=2, column=0, sticky="nsew", padx=12)
         nav.columnconfigure(0, weight=1)
-        for index, (key, title) in enumerate([("items", "???"), ("encyclopedia", "????"), ("patterns", "???")]):
+        for index, (key, title) in enumerate([("items", "物品库"), ("encyclopedia", "离线百科"), ("patterns", "设计图")]):
             button = tk.Button(
                 nav,
                 text=title,
@@ -633,8 +633,8 @@ class OfflineAssistantApp:
         sidebar_actions = tk.Frame(sidebar, bg="#211833")
         sidebar_actions.grid(row=3, column=0, sticky="ew", padx=18, pady=(8, 18))
         sidebar_actions.columnconfigure(0, weight=1)
-        ttk.Button(sidebar_actions, text="?????", command=self.choose_database, style="Ghost.TButton").grid(row=0, column=0, sticky="ew", pady=(0, 8))
-        ttk.Button(sidebar_actions, text="?????", command=self.reload_database, style="Accent.TButton").grid(row=1, column=0, sticky="ew")
+        ttk.Button(sidebar_actions, text="打开数据库", command=self.choose_database, style="Ghost.TButton").grid(row=0, column=0, sticky="ew", pady=(0, 8))
+        ttk.Button(sidebar_actions, text="刷新数据库", command=self.reload_database, style="Accent.TButton").grid(row=1, column=0, sticky="ew")
 
         content = tk.Frame(shell, bg="#30264b")
         content.grid(row=0, column=1, sticky="nsew")
@@ -652,8 +652,8 @@ class OfflineAssistantApp:
 
         top_actions = tk.Frame(header, bg="#30264b")
         top_actions.grid(row=0, column=1, sticky="e")
-        ttk.Button(top_actions, text="?????", command=self.choose_database, style="Ghost.TButton").grid(row=0, column=0, padx=(0, 8))
-        ttk.Button(top_actions, text="????", command=self.reload_database, style="Accent.TButton").grid(row=0, column=1)
+        ttk.Button(top_actions, text="打开数据库", command=self.choose_database, style="Ghost.TButton").grid(row=0, column=0, padx=(0, 8))
+        ttk.Button(top_actions, text="重新载入", command=self.reload_database, style="Accent.TButton").grid(row=0, column=1)
 
         info_strip = tk.Frame(content, bg="#30264b")
         info_strip.grid(row=1, column=0, sticky="ew", padx=20, pady=(0, 10))
@@ -677,15 +677,15 @@ class OfflineAssistantApp:
         content_card.columnconfigure(0, weight=1)
         content_card.rowconfigure(0, weight=1)
 
-        self.notebook = ttk.Notebook(content_card, style="SidebarNotebook")
+        self.notebook = ttk.Notebook(content_card, style="Sidebar.TNotebook")
         self.notebook.grid(row=0, column=0, sticky="nsew", padx=8, pady=8)
 
         self.items_tab = ttk.Frame(self.notebook, style="Shell.TFrame")
         self.encyclopedia_tab = ttk.Frame(self.notebook, style="Shell.TFrame")
         self.patterns_tab = ttk.Frame(self.notebook, style="Shell.TFrame")
-        self.notebook.add(self.items_tab, text="????")
-        self.notebook.add(self.encyclopedia_tab, text="????")
-        self.notebook.add(self.patterns_tab, text="???")
+        self.notebook.add(self.items_tab, text="物品对照")
+        self.notebook.add(self.encyclopedia_tab, text="离线百科")
+        self.notebook.add(self.patterns_tab, text="设计图")
         self.page_tabs = {"items": self.items_tab, "encyclopedia": self.encyclopedia_tab, "patterns": self.patterns_tab}
 
         self.build_items_tab()
@@ -706,32 +706,32 @@ class OfflineAssistantApp:
 
     def update_dashboard_stats(self) -> None:
         if self.current_page_key == "items" and self.data is not None:
-            self.stat_titles[0].set("????")
+            self.stat_titles[0].set("物品总数")
             self.stat_values[0].set(str(len(self.data.records)))
-            self.stat_titles[1].set("????")
+            self.stat_titles[1].set("当前显示")
             self.stat_values[1].set(str(len(self.visible_records)))
-            self.stat_titles[2].set("????")
+            self.stat_titles[2].set("分类数量")
             self.stat_values[2].set(str(len(self.data.category_counts)))
         elif self.current_page_key == "encyclopedia" and self.knowledge_base is not None:
             total_entries = sum(len(v) for v in self.knowledge_base.encyclopedia.values())
             chinese_entries = sum(1 for entries in self.knowledge_base.encyclopedia.values() for entry in entries if self.resolve_encyclopedia_chinese_title(entry))
-            self.stat_titles[0].set("????")
+            self.stat_titles[0].set("百科条目")
             self.stat_values[0].set(str(total_entries))
-            self.stat_titles[1].set("????")
+            self.stat_titles[1].set("已带中文")
             self.stat_values[1].set(str(chinese_entries))
-            self.stat_titles[2].set("????")
+            self.stat_titles[2].set("当前列表")
             self.stat_values[2].set(str(len(self.encyclopedia_visible_entries)))
         elif self.current_page_key == "patterns" and self.pattern_repository is not None:
             total_patterns = len(self.pattern_visible_entries)
             saved_patterns = sum(1 for entry in self.pattern_visible_entries if entry.is_saved)
-            self.stat_titles[0].set("?????")
+            self.stat_titles[0].set("设计图索引")
             self.stat_values[0].set(str(total_patterns))
-            self.stat_titles[1].set("???")
+            self.stat_titles[1].set("已保存")
             self.stat_values[1].set(str(saved_patterns))
-            self.stat_titles[2].set("????")
-            self.stat_values[2].set("??")
+            self.stat_titles[2].set("资源状态")
+            self.stat_values[2].set("在线")
         else:
-            for index, title in enumerate(["???", "???", "???"]):
+            for index, title in enumerate(["状态一", "状态二", "状态三"]):
                 self.stat_titles[index].set(title)
                 self.stat_values[index].set("-")
 
@@ -740,18 +740,18 @@ class OfflineAssistantApp:
             return
         self.current_page_key = page_key
         self.notebook.select(self.page_tabs[page_key])
-        title, subtitle = self.page_meta.get(page_key, ("??????", ""))
+        title, subtitle = self.page_meta.get(page_key, ("动森离线助手", ""))
         self.page_title_var.set(title)
         self.page_subtitle_var.set(subtitle)
 
         if page_key == "items" and self.data is not None:
-            badge = f"?? {len(self.visible_records) if self.visible_records else len(self.data.records)} / {len(self.data.records)}"
+            badge = f"物品 {len(self.visible_records) if self.visible_records else len(self.data.records)} / {len(self.data.records)}"
         elif page_key == "encyclopedia" and self.knowledge_base is not None:
-            badge = f"?? {len(self.encyclopedia_visible_entries)} ?"
+            badge = f"百科 {len(self.encyclopedia_visible_entries)} 条"
         elif page_key == "patterns" and self.pattern_repository is not None:
-            badge = f"??? {len(self.pattern_visible_entries)} ?"
+            badge = f"设计图 {len(self.pattern_visible_entries)} 条"
         else:
-            badge = "????"
+            badge = "等待加载"
         self.page_status_var.set(badge)
         self.update_dashboard_stats()
 
