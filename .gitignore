@@ -1,0 +1,9 @@
+__pycache__/
+build/
+dist/
+*.spec
+*.pyc
+offline_cache/
+offline_cache_test/
+items.csv
+selftest-*.json
