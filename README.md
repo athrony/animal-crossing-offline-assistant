@@ -1,27 +1,25 @@
 # Animal Crossing Offline Assistant
 
-A local desktop helper for browsing `items.csv`, comparing English and Chinese names, and caching offline Animal Crossing reference data from Nookipedia.
+A simplified local desktop helper for Animal Crossing item lookup and offline encyclopedia browsing.
 
-## Features
+## What Changed
 
-- Search by English, Chinese, item ID, category, and type
-- Filter by `category_zh` and `item_kind`
-- One-click copy for English and Chinese names
-- Offline encyclopedia sections for villagers, art, DIY recipes, fossils, and events
-- On-demand item caching for icons and wiki summaries
-- Windows EXE packaging with PyInstaller
+This project no longer runs from `items.csv`.
 
-## Expected Local Data
+It now ships with:
 
-The app will look for `items.csv` in this order:
+- a bundled SQLite database
+- a simplified item table with empty-name rows removed
+- offline encyclopedia entries stored in the database
+- optional local image assets in `data/images/`
 
-1. Next to the EXE
-2. `items.csv`
-3. The current working directory
+## Main Files
 
-Offline cache defaults to:
-
-`offline_cache/`
+- `app.py`: database-driven desktop app
+- `build_database.py`: converts `items.csv` + lightweight cache into SQLite
+- `build.ps1`: rebuilds the database and packages the EXE
+- `data/animal_crossing_offline.db`: bundled runtime database
+- `dist/ItemsBilingualViewer.exe`: packaged Windows executable
 
 ## Run Locally
 
@@ -29,19 +27,22 @@ Offline cache defaults to:
 py -3.11 app.py
 ```
 
-## Build Lightweight Offline Encyclopedia Cache
+The app looks for the database in:
+
+1. `data/animal_crossing_offline.db` next to the app
+2. `animal_crossing_offline.db` next to the app
+3. the same two locations under the current working directory
+
+## Rebuild The Database
 
 ```powershell
-py -3.11 app.py --csv items.csv --sync-wiki
+py -3.11 build_database.py --csv items.csv --output-dir data
 ```
-
-This sync keeps the built-in encyclopedia lightweight.
-Large item records are cached on demand inside the app with the `缓存当前词条` button.
 
 ## Self Test
 
 ```powershell
-py -3.11 app.py --csv items.csv --self-test
+py -3.11 app.py --self-test
 ```
 
 ## Build EXE
@@ -50,14 +51,16 @@ py -3.11 app.py --csv items.csv --self-test
 powershell -ExecutionPolicy Bypass -File .\build.ps1
 ```
 
-Output:
+Build output:
 
 - `dist/ItemsBilingualViewer.exe`
-- `dist/offline_cache/`
+- `dist/data/animal_crossing_offline.db`
 
 ## Data Source
 
-- Nookipedia wiki: https://nookipedia.com/wiki/Main_Page
-- Nookipedia API docs: https://api.nookipedia.com/doc
+- Local `items.csv`
+- Lightweight cached Nookipedia-derived offline knowledge data
 
-This project stores only local cache files for offline viewing.
+## Repository Note
+
+This repository intentionally tracks both the bundled database and the packaged EXE.

@@ -1,5 +1,6 @@
 param(
-    [string]$PythonVersion = "3.11"
+    [string]$PythonVersion = "3.11",
+    [string]$CsvPath = "items.csv"
 )
 
 $ErrorActionPreference = "Stop"
@@ -21,28 +22,43 @@ function Invoke-Step {
     & $commandName @commandArgs
 
     if ($LASTEXITCODE -ne 0) {
-        throw "步骤失败：$Label (exit code: $LASTEXITCODE)"
+        throw "Step failed: $Label (exit code: $LASTEXITCODE)"
     }
 }
 
 $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $appPath = Join-Path $scriptRoot "app.py"
+$dbBuilderPath = Join-Path $scriptRoot "build_database.py"
 $distPath = Join-Path $scriptRoot "dist"
 $buildPath = Join-Path $scriptRoot "build"
-$cachePath = Join-Path $scriptRoot "offline_cache"
+$dataPath = Join-Path $scriptRoot "data"
 
 if (-not (Test-Path $appPath)) {
-    throw "找不到 app.py：$appPath"
+    throw "Missing app.py: $appPath"
 }
 
-Invoke-Step -Label "检查 Python" -Command @("py", "-$PythonVersion", "--version")
+if (-not (Test-Path $dbBuilderPath)) {
+    throw "Missing build_database.py: $dbBuilderPath"
+}
+
+Invoke-Step -Label "Check Python" -Command @("py", "-$PythonVersion", "--version")
 
 try {
-    Invoke-Step -Label "检查 PyInstaller" -Command @("py", "-$PythonVersion", "-m", "PyInstaller", "--version")
+    Invoke-Step -Label "Check PyInstaller" -Command @("py", "-$PythonVersion", "-m", "PyInstaller", "--version")
 }
 catch {
-    Invoke-Step -Label "安装 PyInstaller" -Command @("py", "-$PythonVersion", "-m", "pip", "install", "-r", (Join-Path $scriptRoot "requirements-build.txt"))
+    Invoke-Step -Label "Install PyInstaller" -Command @("py", "-$PythonVersion", "-m", "pip", "install", "-r", (Join-Path $scriptRoot "requirements-build.txt"))
 }
+
+Invoke-Step -Label "Build SQLite database" -Command @(
+    "py",
+    "-$PythonVersion",
+    $dbBuilderPath,
+    "--csv",
+    $CsvPath,
+    "--output-dir",
+    $dataPath
+)
 
 if (Test-Path $distPath) {
     Remove-Item -LiteralPath $distPath -Recurse -Force
@@ -52,7 +68,7 @@ if (Test-Path $buildPath) {
     Remove-Item -LiteralPath $buildPath -Recurse -Force
 }
 
-Invoke-Step -Label "开始打包 EXE" -Command @(
+Invoke-Step -Label "Package EXE" -Command @(
     "py",
     "-$PythonVersion",
     "-m",
@@ -74,19 +90,19 @@ Invoke-Step -Label "开始打包 EXE" -Command @(
 
 $exePath = Join-Path $distPath "ItemsBilingualViewer.exe"
 if (-not (Test-Path $exePath)) {
-    throw "打包完成后没有找到 EXE：$exePath"
+    throw "EXE not found after build: $exePath"
 }
 
-if (Test-Path $cachePath) {
-    $distCachePath = Join-Path $distPath "offline_cache"
-    if (Test-Path $distCachePath) {
-        Remove-Item -LiteralPath $distCachePath -Recurse -Force
+if (Test-Path $dataPath) {
+    $distDataPath = Join-Path $distPath "data"
+    if (Test-Path $distDataPath) {
+        Remove-Item -LiteralPath $distDataPath -Recurse -Force
     }
-    Copy-Item -LiteralPath $cachePath -Destination $distCachePath -Recurse
+    Copy-Item -LiteralPath $dataPath -Destination $distDataPath -Recurse
 }
 
 Write-Host ""
-Write-Host "打包成功：$exePath"
-if (Test-Path $cachePath) {
-    Write-Host "已复制离线缓存：$(Join-Path $distPath 'offline_cache')"
+Write-Host "Build complete: $exePath"
+if (Test-Path $dataPath) {
+    Write-Host "Bundled data copied to: $(Join-Path $distPath 'data')"
 }
