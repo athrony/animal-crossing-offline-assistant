@@ -25,6 +25,9 @@ An offline desktop helper for Animal Crossing: New Horizons, focused on item loo
 - 设计图网站索引浏览
 - 下载 `.nhd`、`.acnl`、QR PNG
 - 导入本地图案文件
+- 一键下载并启动 NHSE
+- 一键下载并启动 ACNHDesignPatternEditor
+- 一键同步整个 ACNH Pattern Dump Index 到本地镜像后离线浏览
 
 主要文件：
 
@@ -80,6 +83,9 @@ Key features:
 - pattern index browsing
 - `.nhd`, `.acnl`, and QR image downloads
 - local pattern import support
+- one-click download and launch for NHSE
+- one-click download and launch for ACNHDesignPatternEditor
+- full local mirror sync for ACNH Pattern Dump Index
 
 ## Data Sources
 

@@ -19,6 +19,7 @@ PATTERN_DOWNLOAD_DIRNAME = "downloads"
 PATTERN_IMPORT_DIRNAME = "imports"
 PATTERN_PREVIEW_DIRNAME = "previews"
 PATTERN_QR_DIRNAME = "qr"
+PATTERN_MIRROR_DIRNAME = "pattern_mirror"
 
 
 def clean_text(value: object) -> str:
@@ -191,12 +192,14 @@ class PatternRepository:
         self.imports_dir = self.patterns_dir / PATTERN_IMPORT_DIRNAME
         self.previews_dir = self.patterns_dir / PATTERN_PREVIEW_DIRNAME
         self.qr_dir = self.patterns_dir / PATTERN_QR_DIRNAME
+        self.mirror_dir = self.patterns_dir / PATTERN_MIRROR_DIRNAME
 
         self.patterns_dir.mkdir(parents=True, exist_ok=True)
         self.downloads_dir.mkdir(parents=True, exist_ok=True)
         self.imports_dir.mkdir(parents=True, exist_ok=True)
         self.previews_dir.mkdir(parents=True, exist_ok=True)
         self.qr_dir.mkdir(parents=True, exist_ok=True)
+        self.mirror_dir.mkdir(parents=True, exist_ok=True)
 
         connection = sqlite3.connect(self.db_path)
         try:
@@ -297,6 +300,105 @@ class PatternRepository:
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_bytes(fetch_binary(url))
         return self._relative_path(destination)
+
+    def refresh_local_mirror_index(self, mirror_root: Path) -> int:
+        files_root = mirror_root / "files"
+        if not files_root.exists():
+            raise FileNotFoundError(files_root)
+
+        entries: list[dict[str, str]] = []
+        for category in ("simple", "pro", "pat"):
+            category_dir = files_root / category
+            if not category_dir.exists():
+                continue
+            for nh_file in sorted(list(category_dir.glob("*.nhd")) + list(category_dir.glob("*.nhpd"))):
+                stem = nh_file.stem
+                txt_path = category_dir / f"{stem}.txt"
+                png_path = category_dir / f"{stem}.png"
+                qr_path = category_dir / f"{stem}.QR.png"
+                acnl_path = category_dir / f"{stem}.acnl"
+
+                pattern_type = "Pattern"
+                title = stem
+                creator = "Unknown"
+                tags = ""
+                if txt_path.exists():
+                    lines = txt_path.read_text(encoding="utf-8", errors="replace").splitlines()
+                    if len(lines) > 0:
+                        pattern_type = clean_text(lines[0]) or pattern_type
+                    if len(lines) > 1:
+                        title = clean_text(lines[1]) or title
+                    if len(lines) > 2:
+                        creator = clean_text(lines[2]) or creator
+                    if len(lines) > 3:
+                        tags = clean_text(lines[3])
+
+                entries.append(
+                    {
+                        "site_key": nh_file.name.lower(),
+                        "title": title,
+                        "creator": creator,
+                        "pattern_type": pattern_type,
+                        "tags": tags,
+                        "source_url": str(nh_file),
+                        "preview_url": "",
+                        "qr_url": "",
+                        "nhd_url": str(nh_file),
+                        "acnl_url": str(acnl_path) if acnl_path.exists() else "",
+                        "preview_rel_path": self._relative_path(png_path) if png_path.exists() else "",
+                        "qr_rel_path": self._relative_path(qr_path) if qr_path.exists() else "",
+                        "nhd_rel_path": self._relative_path(nh_file),
+                        "acnl_rel_path": self._relative_path(acnl_path) if acnl_path.exists() else "",
+                    }
+                )
+
+        with self._connect() as connection:
+            for entry in entries:
+                connection.execute(
+                    """
+                    INSERT INTO pattern_entries (
+                        source_type, site_key, title, creator, pattern_type, tags, source_url,
+                        preview_url, qr_url, nhd_url, acnl_url,
+                        preview_rel_path, qr_rel_path, nhd_rel_path, acnl_rel_path,
+                        is_saved, added_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(site_key) DO UPDATE SET
+                        title=excluded.title,
+                        creator=excluded.creator,
+                        pattern_type=excluded.pattern_type,
+                        tags=excluded.tags,
+                        source_url=excluded.source_url,
+                        nhd_url=excluded.nhd_url,
+                        acnl_url=excluded.acnl_url,
+                        preview_rel_path=excluded.preview_rel_path,
+                        qr_rel_path=excluded.qr_rel_path,
+                        nhd_rel_path=excluded.nhd_rel_path,
+                        acnl_rel_path=excluded.acnl_rel_path,
+                        updated_at=excluded.updated_at
+                    """,
+                    (
+                        "mirror",
+                        entry["site_key"],
+                        entry["title"],
+                        entry["creator"],
+                        entry["pattern_type"],
+                        entry["tags"],
+                        entry["source_url"],
+                        "",
+                        "",
+                        entry["nhd_url"],
+                        entry["acnl_url"],
+                        entry["preview_rel_path"],
+                        entry["qr_rel_path"],
+                        entry["nhd_rel_path"],
+                        entry["acnl_rel_path"],
+                        1,
+                        now_iso(),
+                        now_iso(),
+                    ),
+                )
+            connection.commit()
+        return len(entries)
 
     def ensure_preview_cached(self, entry_id: int) -> PatternEntry:
         with self._connect() as connection:

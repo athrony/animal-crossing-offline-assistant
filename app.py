@@ -15,6 +15,7 @@ from tkinter.scrolledtext import ScrolledText
 import tkinter as tk
 
 from pattern_support import PatternEntry, PatternRepository
+from tool_support import ExternalToolRepository, launch_executable
 
 
 APP_TITLE = "动森离线助手"
@@ -360,6 +361,7 @@ class OfflineAssistantApp:
         self.sort_descending = False
         self.filter_job: str | None = None
         self.pattern_repository: PatternRepository | None = None
+        self.external_tools: ExternalToolRepository | None = None
         self.pattern_thread: threading.Thread | None = None
         self.pattern_queue: queue.Queue[tuple[str, object]] = queue.Queue()
 
@@ -397,6 +399,9 @@ class OfflineAssistantApp:
         self.pattern_tags_var = tk.StringVar(value="-")
         self.pattern_saved_var = tk.StringVar(value="-")
         self.pattern_visible_entries: list[PatternEntry] = []
+        self.tool_nhse_var = tk.StringVar(value="NHSE 未安装")
+        self.tool_editor_var = tk.StringVar(value="设计图编辑器未安装")
+        self.tool_mirror_var = tk.StringVar(value="本地镜像未同步")
 
         self.item_image_ref: tk.PhotoImage | None = None
         self.encyclopedia_image_ref: tk.PhotoImage | None = None
@@ -569,6 +574,7 @@ class OfflineAssistantApp:
             "items": ("物品资料库", "浏览、搜索并查看动森物品资料"),
             "encyclopedia": ("离线百科", "按分类浏览百科与图鉴内容"),
             "patterns": ("设计图中心", "浏览、下载并整理设计图案资源"),
+            "tools": ("存档工具", "集成 NHSE 与设计图编辑器的存档修改入口"),
         }
         self.sidebar_buttons: dict[str, tk.Button] = {}
         self.page_tabs: dict[str, ttk.Frame] = {}
@@ -608,7 +614,7 @@ class OfflineAssistantApp:
         nav = tk.Frame(sidebar, bg="#211833")
         nav.grid(row=2, column=0, sticky="nsew", padx=12)
         nav.columnconfigure(0, weight=1)
-        for index, (key, title) in enumerate([("items", "物品库"), ("encyclopedia", "离线百科"), ("patterns", "设计图")]):
+        for index, (key, title) in enumerate([("items", "物品库"), ("encyclopedia", "离线百科"), ("patterns", "设计图"), ("tools", "存档工具")]):
             button = tk.Button(
                 nav,
                 text=title,
@@ -683,14 +689,17 @@ class OfflineAssistantApp:
         self.items_tab = ttk.Frame(self.notebook, style="Shell.TFrame")
         self.encyclopedia_tab = ttk.Frame(self.notebook, style="Shell.TFrame")
         self.patterns_tab = ttk.Frame(self.notebook, style="Shell.TFrame")
+        self.tools_tab = ttk.Frame(self.notebook, style="Shell.TFrame")
         self.notebook.add(self.items_tab, text="物品对照")
         self.notebook.add(self.encyclopedia_tab, text="离线百科")
         self.notebook.add(self.patterns_tab, text="设计图")
-        self.page_tabs = {"items": self.items_tab, "encyclopedia": self.encyclopedia_tab, "patterns": self.patterns_tab}
+        self.notebook.add(self.tools_tab, text="存档工具")
+        self.page_tabs = {"items": self.items_tab, "encyclopedia": self.encyclopedia_tab, "patterns": self.patterns_tab, "tools": self.tools_tab}
 
         self.build_items_tab()
         self.build_encyclopedia_tab()
         self.build_patterns_tab()
+        self.build_tools_tab()
         self.show_page("items")
 
         status_bar = tk.Label(outer, textvariable=self.status_var, fg="#d7caef", bg="#1a1428", anchor="w", padx=14, pady=8, font=("Microsoft YaHei UI", 9))
@@ -946,7 +955,8 @@ class OfflineAssistantApp:
         self.pattern_download_button.grid(row=0, column=4, padx=(0, 8))
         self.pattern_import_button = ttk.Button(control_frame, text="导入本地图案", command=self.import_local_patterns)
         self.pattern_import_button.grid(row=0, column=5, padx=(0, 8))
-        ttk.Button(control_frame, text="打开图案目录", command=self.open_patterns_folder).grid(row=0, column=6)
+        ttk.Button(control_frame, text="打开图案目录", command=self.open_patterns_folder).grid(row=0, column=6, padx=(0, 8))
+        ttk.Button(control_frame, text="查看大图", command=self.open_selected_pattern_preview).grid(row=0, column=7)
 
         paned = ttk.Panedwindow(self.patterns_tab, orient="horizontal")
         paned.grid(row=1, column=0, sticky="nsew")
@@ -991,6 +1001,50 @@ class OfflineAssistantApp:
         style_text_widget(self.pattern_details_text)
         self.pattern_details_text.configure(state="disabled")
         right_frame.rowconfigure(7, weight=1)
+
+    def build_tools_tab(self) -> None:
+        self.tools_tab.columnconfigure(0, weight=1)
+
+        wrapper = ttk.Frame(self.tools_tab, style="Shell.TFrame", padding=(6, 6))
+        wrapper.grid(row=0, column=0, sticky="nsew")
+        wrapper.columnconfigure(0, weight=1)
+        wrapper.columnconfigure(1, weight=1)
+        wrapper.rowconfigure(1, weight=1)
+
+        intro = ttk.LabelFrame(wrapper, text="存档修改与本地镜像", padding=(16, 14), style="Card.TLabelframe")
+        intro.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 12))
+        intro.columnconfigure(0, weight=1)
+        ttk.Label(intro, text="这里是你之前要求的真正工具入口：NHSE 存档编辑、设计图编辑器、以及整个 Pattern Dump Index 的本地镜像同步。", style="Value.TLabel", wraplength=980, justify="left").grid(row=0, column=0, sticky="w")
+
+        nhse_card = ttk.LabelFrame(wrapper, text="NHSE 存档编辑器", padding=(16, 14), style="Card.TLabelframe")
+        nhse_card.grid(row=1, column=0, sticky="nsew", padx=(0, 8))
+        nhse_card.columnconfigure(0, weight=1)
+        ttk.Label(nhse_card, textvariable=self.tool_nhse_var, style="LargeValue.TLabel", wraplength=420, justify="left").grid(row=0, column=0, sticky="w")
+        ttk.Label(nhse_card, text="支持加载和修改 ACNH 存档。", style="Value.TLabel", wraplength=420, justify="left").grid(row=1, column=0, sticky="w", pady=(8, 12))
+        ttk.Button(nhse_card, text="下载或更新 NHSE", command=self.install_nhse_async, style="Accent.TButton").grid(row=2, column=0, sticky="ew", pady=(0, 8))
+        ttk.Button(nhse_card, text="启动 NHSE", command=self.launch_nhse, style="Ghost.TButton").grid(row=3, column=0, sticky="ew")
+
+        editor_card = ttk.LabelFrame(wrapper, text="设计图编辑器", padding=(16, 14), style="Card.TLabelframe")
+        editor_card.grid(row=1, column=1, sticky="nsew", padx=(8, 0))
+        editor_card.columnconfigure(0, weight=1)
+        ttk.Label(editor_card, textvariable=self.tool_editor_var, style="LargeValue.TLabel", wraplength=420, justify="left").grid(row=0, column=0, sticky="w")
+        ttk.Label(editor_card, text="直接修改设计图存档槽位、导入导出图案项目。", style="Value.TLabel", wraplength=420, justify="left").grid(row=1, column=0, sticky="w", pady=(8, 12))
+        ttk.Button(editor_card, text="下载或更新设计图编辑器", command=self.install_pattern_editor_async, style="Accent.TButton").grid(row=2, column=0, sticky="ew", pady=(0, 8))
+        ttk.Button(editor_card, text="启动设计图编辑器", command=self.launch_pattern_editor, style="Ghost.TButton").grid(row=3, column=0, sticky="ew")
+
+        mirror_card = ttk.LabelFrame(wrapper, text="本地设计图镜像", padding=(16, 14), style="Card.TLabelframe")
+        mirror_card.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(12, 0))
+        mirror_card.columnconfigure(0, weight=1)
+        ttk.Label(mirror_card, textvariable=self.tool_mirror_var, style="LargeValue.TLabel", wraplength=900, justify="left").grid(row=0, column=0, sticky="w")
+        ttk.Label(mirror_card, text="把 vectorcmdr 的整套设计图库同步到本地后，设计图页将优先使用本地文件实现大图浏览和本地下载。", style="Value.TLabel", wraplength=900, justify="left").grid(row=1, column=0, sticky="w", pady=(8, 12))
+        actions = ttk.Frame(mirror_card, style="Shell.TFrame")
+        actions.grid(row=2, column=0, sticky="ew")
+        actions.columnconfigure(0, weight=1)
+        actions.columnconfigure(1, weight=1)
+        actions.columnconfigure(2, weight=1)
+        ttk.Button(actions, text="同步本地镜像", command=self.sync_pattern_mirror_async, style="Accent.TButton").grid(row=0, column=0, sticky="ew", padx=(0, 8))
+        ttk.Button(actions, text="打开镜像目录", command=self.open_pattern_mirror_folder, style="Ghost.TButton").grid(row=0, column=1, sticky="ew", padx=(8, 8))
+        ttk.Button(actions, text="打开离线站点", command=self.open_pattern_mirror_site, style="Ghost.TButton").grid(row=0, column=2, sticky="ew")
 
     def bind_events(self) -> None:
         self.search_var.trace_add("write", lambda *_: self.schedule_filter())
@@ -1043,6 +1097,7 @@ class OfflineAssistantApp:
         self.data = loaded
         self.knowledge_base = knowledge_base
         self.pattern_repository = PatternRepository(db_path)
+        self.external_tools = ExternalToolRepository(db_path.parent)
         self.translation_map = build_translation_map(loaded.records)
         self.path_var.set(str(db_path))
         self.cache_var.set(knowledge_base.summary_stats())
@@ -1064,6 +1119,7 @@ class OfflineAssistantApp:
         self.apply_filters()
         self.refresh_encyclopedia_view()
         self.refresh_pattern_view()
+        self.refresh_tool_states()
         self.show_page(self.current_page_key)
 
     def clear_filters(self) -> None:
@@ -1071,6 +1127,14 @@ class OfflineAssistantApp:
         self.category_var.set(ALL_CATEGORIES)
         self.kind_var.set(ALL_KINDS)
         self.apply_filters()
+
+    def refresh_tool_states(self) -> None:
+        if self.external_tools is None:
+            return
+        state = self.external_tools.state()
+        self.tool_nhse_var.set(str(state.nhse_exe) if state.nhse_exe else "NHSE 未安装")
+        self.tool_editor_var.set(str(state.pattern_editor_exe) if state.pattern_editor_exe else "设计图编辑器未安装")
+        self.tool_mirror_var.set(str(state.pattern_mirror_dir) if state.pattern_mirror_dir else "本地镜像未同步")
 
     def schedule_filter(self) -> None:
         if self.filter_job is not None:
@@ -1438,6 +1502,101 @@ class OfflineAssistantApp:
             import os
             os.startfile(folder)  # type: ignore[attr-defined]
 
+    def install_nhse_async(self) -> None:
+        if self.external_tools is None:
+            return
+        from tool_support import install_nhse
+
+        self.status_var.set("正在下载或更新 NHSE...")
+        self._run_pattern_task("install-nhse", lambda: install_nhse(self.external_tools.data_dir))
+
+    def install_pattern_editor_async(self) -> None:
+        if self.external_tools is None:
+            return
+        from tool_support import install_pattern_editor
+
+        self.status_var.set("正在下载或更新设计图编辑器...")
+        self._run_pattern_task("install-pattern-editor", lambda: install_pattern_editor(self.external_tools.data_dir))
+
+    def sync_pattern_mirror_async(self) -> None:
+        if self.external_tools is None or self.pattern_repository is None:
+            return
+        from tool_support import sync_pattern_mirror
+
+        source_hint = Path.home() / "Documents" / ".tmp_pattern_dump_index"
+
+        def job():
+            mirror_dir = sync_pattern_mirror(self.external_tools.data_dir, source_hint if source_hint.exists() else None)
+            count = self.pattern_repository.refresh_local_mirror_index(mirror_dir)
+            return mirror_dir, count
+
+        self.status_var.set("正在同步本地设计图镜像...")
+        self._run_pattern_task("sync-pattern-mirror", job)
+
+    def launch_nhse(self) -> None:
+        if self.external_tools is None:
+            return
+        state = self.external_tools.state()
+        if state.nhse_exe is None:
+            messagebox.showinfo(APP_TITLE, "请先下载安装 NHSE。")
+            return
+        launch_executable(state.nhse_exe)
+        self.status_var.set("已启动 NHSE")
+
+    def launch_pattern_editor(self) -> None:
+        if self.external_tools is None:
+            return
+        state = self.external_tools.state()
+        if state.pattern_editor_exe is None:
+            messagebox.showinfo(APP_TITLE, "请先下载安装设计图编辑器。")
+            return
+        launch_executable(state.pattern_editor_exe)
+        self.status_var.set("已启动设计图编辑器")
+
+    def open_pattern_mirror_folder(self) -> None:
+        if self.external_tools is None:
+            return
+        state = self.external_tools.state()
+        if state.pattern_mirror_dir is None:
+            messagebox.showinfo(APP_TITLE, "请先同步本地镜像。")
+            return
+        if sys.platform.startswith("win"):
+            import os
+            os.startfile(state.pattern_mirror_dir)  # type: ignore[attr-defined]
+
+    def open_pattern_mirror_site(self) -> None:
+        if self.external_tools is None:
+            return
+        state = self.external_tools.state()
+        if state.pattern_mirror_dir is None:
+            messagebox.showinfo(APP_TITLE, "请先同步本地镜像。")
+            return
+        index_path = state.pattern_mirror_dir / "index.html"
+        if not index_path.exists():
+            messagebox.showwarning(APP_TITLE, "本地镜像缺少 index.html。")
+            return
+        if sys.platform.startswith("win"):
+            import os
+            os.startfile(index_path)  # type: ignore[attr-defined]
+
+    def open_selected_pattern_preview(self) -> None:
+        if self.pattern_repository is None:
+            return
+        selection = self.pattern_tree.selection()
+        if not selection:
+            return
+        index = int(selection[0])
+        if not (0 <= index < len(self.pattern_visible_entries)):
+            return
+        entry = self.pattern_repository.ensure_preview_cached(self.pattern_visible_entries[index].id)
+        preview_path = self.pattern_repository.image_path(entry.preview_rel_path)
+        if preview_path is None or not preview_path.exists():
+            messagebox.showinfo(APP_TITLE, "当前设计图没有可用的大图预览。")
+            return
+        if sys.platform.startswith("win"):
+            import os
+            os.startfile(preview_path)  # type: ignore[attr-defined]
+
     def poll_pattern_queue(self) -> None:
         try:
             while True:
@@ -1449,6 +1608,16 @@ class OfflineAssistantApp:
                     elif task_name == "download-pattern":
                         self.refresh_pattern_view()
                         self.status_var.set(f"已下载设计图：{payload.title}")
+                    elif task_name == "install-nhse":
+                        self.refresh_tool_states()
+                        self.status_var.set(f"NHSE 已安装：{payload[0]}")
+                    elif task_name == "install-pattern-editor":
+                        self.refresh_tool_states()
+                        self.status_var.set(f"设计图编辑器已安装：{payload[0]}")
+                    elif task_name == "sync-pattern-mirror":
+                        self.refresh_tool_states()
+                        self.refresh_pattern_view()
+                        self.status_var.set(f"本地镜像同步完成，共 {payload[1]} 条")
                 elif message_type == "error":
                     self.status_var.set("设计图操作失败")
                     messagebox.showerror(APP_TITLE, f"设计图任务失败：\n{payload}")

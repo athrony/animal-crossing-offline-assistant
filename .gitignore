@@ -9,3 +9,7 @@ selftest-*.json
 legacy_seed.db
 data/patterns/
 dist/data/patterns/
+data/tools/
+data/ACNH-Pattern-Dump-Index/
+dist/data/tools/
+dist/data/ACNH-Pattern-Dump-Index/
