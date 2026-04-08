@@ -11,12 +11,14 @@ It now ships with:
 - a bundled SQLite database
 - a simplified item table with empty-name rows removed
 - offline encyclopedia entries stored in the database
-- optional local image assets in `data/images/`
+- bundled local image assets in `data/images/`
+- NHSE-derived item menu icons and villager portraits
 
 ## Main Files
 
 - `app.py`: database-driven desktop app
 - `build_database.py`: converts `items.csv` + lightweight cache into SQLite
+- `build_database.py`: converts `items.csv` + lightweight cache + NHSE assets into SQLite
 - `build.ps1`: rebuilds the database and packages the EXE
 - `data/animal_crossing_offline.db`: bundled runtime database
 - `dist/ItemsBilingualViewer.exe`: packaged Windows executable
@@ -60,7 +62,8 @@ Build output:
 
 - Local `items.csv`
 - Lightweight cached Nookipedia-derived offline knowledge data
+- NHSE text and sprite assets: https://github.com/kwsch/NHSE
 
 ## Repository Note
 
-This repository intentionally tracks both the bundled database and the packaged EXE.
+This repository intentionally tracks the bundled database, NHSE-enriched image assets, and the packaged EXE.

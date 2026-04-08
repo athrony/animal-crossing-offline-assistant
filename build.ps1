@@ -1,6 +1,7 @@
 param(
     [string]$PythonVersion = "3.11",
-    [string]$CsvPath = "items.csv"
+    [string]$CsvPath = "items.csv",
+    [string]$NhseRoot = "%TEMP%\AnimalCrossingOfflineAssistant\.tmp_nhse"
 )
 
 $ErrorActionPreference = "Stop"
@@ -32,6 +33,7 @@ $dbBuilderPath = Join-Path $scriptRoot "build_database.py"
 $distPath = Join-Path $scriptRoot "dist"
 $buildPath = Join-Path $scriptRoot "build"
 $dataPath = Join-Path $scriptRoot "data"
+$seedDbPath = Join-Path $scriptRoot "legacy_seed.db"
 
 if (-not (Test-Path $appPath)) {
     throw "Missing app.py: $appPath"
@@ -50,15 +52,21 @@ catch {
     Invoke-Step -Label "Install PyInstaller" -Command @("py", "-$PythonVersion", "-m", "pip", "install", "-r", (Join-Path $scriptRoot "requirements-build.txt"))
 }
 
-Invoke-Step -Label "Build SQLite database" -Command @(
+$dbCommand = @(
     "py",
     "-$PythonVersion",
     $dbBuilderPath,
     "--csv",
     $CsvPath,
+    "--nhse-root",
+    $NhseRoot,
     "--output-dir",
     $dataPath
 )
+if (Test-Path $seedDbPath) {
+    $dbCommand += @("--seed-db", $seedDbPath)
+}
+Invoke-Step -Label "Build SQLite database" -Command $dbCommand
 
 if (Test-Path $distPath) {
     Remove-Item -LiteralPath $distPath -Recurse -Force

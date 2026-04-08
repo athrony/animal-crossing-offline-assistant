@@ -6,3 +6,4 @@ offline_cache/
 offline_cache_test/
 items.csv
 selftest-*.json
+legacy_seed.db

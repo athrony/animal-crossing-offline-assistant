@@ -47,6 +47,7 @@ class ItemRecord:
     item_kind_code: str
     item_kind: str
     category_zh: str
+    image_rel_path: str
     search_blob: str
 
 
@@ -162,7 +163,8 @@ def load_database_items(db_path: Path) -> LoadedData:
             """
             SELECT item_id, COALESCE(english, '') AS english, COALESCE(chinese, '') AS chinese,
                    COALESCE(item_kind_code, '') AS item_kind_code, COALESCE(item_kind, '') AS item_kind,
-                   COALESCE(category_zh, '') AS category_zh
+                   COALESCE(category_zh, '') AS category_zh,
+                   COALESCE(image_rel_path, '') AS image_rel_path
             FROM items
             ORDER BY item_id
             """
@@ -176,6 +178,7 @@ def load_database_items(db_path: Path) -> LoadedData:
             item_kind_code=row["item_kind_code"],
             item_kind=row["item_kind"],
             category_zh=row["category_zh"],
+            image_rel_path=row["image_rel_path"],
             search_blob=normalize_text(
                 " ".join(
                     [
@@ -730,13 +733,22 @@ class OfflineAssistantApp:
             if image is not None:
                 self.item_image_label.configure(image=image, text="")
             else:
-                self.item_image_label.configure(image="", text="暂无图标")
+                fallback_image = load_photo_image(self.knowledge_base.image_path(record.image_rel_path)) if self.knowledge_base else None
+                self.item_image_ref = fallback_image
+                if fallback_image is not None:
+                    self.item_image_label.configure(image=fallback_image, text="")
+                else:
+                    self.item_image_label.configure(image="", text="暂无图标")
         else:
-            self.detail_source_var.set("数据库中没有该条目的百科扩展信息")
+            self.detail_source_var.set("数据库中没有该条目的百科扩展信息，显示数据库基础图标")
             set_text_widget(self.item_summary_text, "")
             set_text_widget(self.item_facts_text, "")
-            self.item_image_ref = None
-            self.item_image_label.configure(image="", text="暂无图标")
+            fallback_image = load_photo_image(self.knowledge_base.image_path(record.image_rel_path)) if self.knowledge_base else None
+            self.item_image_ref = fallback_image
+            if fallback_image is not None:
+                self.item_image_label.configure(image=fallback_image, text="")
+            else:
+                self.item_image_label.configure(image="", text="暂无图标")
 
     def refresh_current_item_detail(self) -> None:
         selection = self.tree.selection()
