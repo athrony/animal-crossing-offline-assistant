@@ -239,6 +239,7 @@ class PatternRepository:
                         preview_url, qr_url, nhd_url, acnl_url, added_at, updated_at
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(site_key) DO UPDATE SET
+                        source_type=excluded.source_type,
                         title=excluded.title,
                         creator=excluded.creator,
                         pattern_type=excluded.pattern_type,
@@ -384,6 +385,7 @@ class PatternRepository:
                         qr_rel_path=excluded.qr_rel_path,
                         nhd_rel_path=excluded.nhd_rel_path,
                         acnl_rel_path=excluded.acnl_rel_path,
+                        is_saved=excluded.is_saved,
                         updated_at=excluded.updated_at
                     """,
                     (

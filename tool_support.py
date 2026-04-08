@@ -92,8 +92,8 @@ def install_pattern_editor(base_dir: Path) -> tuple[Path, str]:
 def sync_pattern_mirror(base_dir: Path, source_hint: Path | None = None) -> Path:
     target_dir = base_dir / PATTERN_MIRROR_DIRNAME
     if source_hint is not None and source_hint.exists():
-        ensure_empty_dir(target_dir)
-        shutil.copytree(source_hint, target_dir, dirs_exist_ok=True)
+        target_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(source_hint, target_dir, dirs_exist_ok=True, ignore=shutil.ignore_patterns(".git"))
         return target_dir
 
     if target_dir.exists():

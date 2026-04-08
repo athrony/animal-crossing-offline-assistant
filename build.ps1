@@ -69,8 +69,8 @@ if (Test-Path $seedDbPath) {
 Invoke-Step -Label "Build SQLite database" -Command $dbCommand
 
 $databasePath = Join-Path $dataPath "animal_crossing_offline.db"
-$patternCommand = "from pathlib import Path; from pattern_support import PatternRepository; repo = PatternRepository(Path(r'$databasePath')); print(repo.refresh_site_index())"
-Invoke-Step -Label "Preload pattern index" -Command @(
+$patternCommand = "from pathlib import Path; from tool_support import sync_pattern_mirror; from pattern_support import PatternRepository; base = Path(r'$dataPath'); mirror = sync_pattern_mirror(base, Path.home() / 'Documents' / '.tmp_pattern_dump_index'); repo = PatternRepository(Path(r'$databasePath')); print(repo.refresh_site_index()); print(repo.refresh_local_mirror_index(mirror))"
+Invoke-Step -Label "Preload pattern index and local mirror" -Command @(
     "py",
     "-$PythonVersion",
     "-c",
