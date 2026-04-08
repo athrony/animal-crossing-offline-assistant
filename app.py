@@ -204,7 +204,26 @@ def build_lookup_candidates(english_name: str) -> list[str]:
         candidates.append(normalize_text(raw[: -len(" (DIY recipe)")]))
     if raw.endswith(" (No Variations)"):
         candidates.append(normalize_text(raw[: -len(" (No Variations)")]))
+    if raw.endswith(" (forgery)"):
+        candidates.append(normalize_text(raw[: -len(" (forgery)")]))
     return list(dict.fromkeys([candidate for candidate in candidates if candidate]))
+
+
+def build_translation_map(records: list[ItemRecord]) -> dict[str, str]:
+    translation_counter: dict[str, dict[str, int]] = {}
+    for record in records:
+        english_name = clean_cell(record.english)
+        chinese_name = clean_cell(record.chinese_simplified)
+        if not english_name or english_name == "(None)" or not chinese_name or chinese_name == "(None)":
+            continue
+        normalized_name = normalize_text(english_name)
+        translation_counter.setdefault(normalized_name, {})
+        translation_counter[normalized_name][chinese_name] = translation_counter[normalized_name].get(chinese_name, 0) + 1
+
+    translations: dict[str, str] = {}
+    for normalized_name, counter in translation_counter.items():
+        translations[normalized_name] = sorted(counter.items(), key=lambda item: (-item[1], item[0]))[0][0]
+    return translations
 
 
 def resolve_default_csv_path(cli_path: str | None) -> Path | None:
@@ -273,6 +292,7 @@ class OfflineAssistantApp:
         self.search_var = tk.StringVar()
         self.category_var = tk.StringVar(value=ALL_CATEGORIES)
         self.kind_var = tk.StringVar(value=ALL_KINDS)
+        self.translation_map: dict[str, str] = {}
         self.path_var = tk.StringVar(value="尚未加载 CSV")
         self.cache_var = tk.StringVar(value=self.build_cache_status())
         self.status_var = tk.StringVar(value="准备就绪")
@@ -488,37 +508,52 @@ class OfflineAssistantApp:
         paned.add(left_frame, weight=3)
         paned.add(right_frame, weight=4)
 
-        self.encyclopedia_tree = ttk.Treeview(left_frame, columns=("title", "subtitle"), show="headings", selectmode="browse")
-        self.encyclopedia_tree.heading("title", text="名称")
-        self.encyclopedia_tree.heading("subtitle", text="概要")
+        self.encyclopedia_tree = ttk.Treeview(
+            left_frame,
+            columns=("title", "chinese", "subtitle"),
+            show="headings",
+            selectmode="browse",
+        )
+        self.encyclopedia_tree.heading("title", text="??")
+        self.encyclopedia_tree.heading("chinese", text="????")
+        self.encyclopedia_tree.heading("subtitle", text="??")
         self.encyclopedia_tree.column("title", width=220, anchor="w")
-        self.encyclopedia_tree.column("subtitle", width=420, anchor="w")
+        self.encyclopedia_tree.column("chinese", width=220, anchor="w")
+        self.encyclopedia_tree.column("subtitle", width=320, anchor="w")
         e_vscroll = ttk.Scrollbar(left_frame, orient="vertical", command=self.encyclopedia_tree.yview)
         self.encyclopedia_tree.configure(yscrollcommand=e_vscroll.set)
         self.encyclopedia_tree.grid(row=0, column=0, sticky="nsew")
         e_vscroll.grid(row=0, column=1, sticky="ns")
 
-        self.encyclopedia_image_label = ttk.Label(right_frame, text="暂无图标", anchor="center", relief="solid", width=22)
+        self.encyclopedia_image_label = ttk.Label(right_frame, text="????", anchor="center", relief="solid", width=22)
         self.encyclopedia_image_label.grid(row=0, column=0, sticky="nw")
         title_row = ttk.Frame(right_frame)
         title_row.grid(row=1, column=0, sticky="ew", pady=(10, 0))
         title_row.columnconfigure(0, weight=1)
         self.encyclopedia_title_var = tk.StringVar(value="-")
+        self.encyclopedia_chinese_var = tk.StringVar(value="-")
         self.encyclopedia_subtitle_var = tk.StringVar(value="-")
         ttk.Label(title_row, textvariable=self.encyclopedia_title_var, style="LargeValue.TLabel", wraplength=620, justify="left").grid(row=0, column=0, sticky="w")
-        ttk.Button(title_row, text="复制名称", command=self.copy_encyclopedia_title).grid(row=0, column=1, padx=(8, 0))
-        ttk.Label(right_frame, textvariable=self.encyclopedia_subtitle_var, style="Value.TLabel", wraplength=620, justify="left").grid(row=2, column=0, sticky="w", pady=(4, 0))
+        ttk.Button(title_row, text="????", command=self.copy_encyclopedia_title).grid(row=0, column=1, padx=(8, 0))
 
-        ttk.Label(right_frame, text="Wiki 摘要", style="Header.TLabel").grid(row=3, column=0, sticky="w", pady=(12, 4))
+        chinese_row = ttk.Frame(right_frame)
+        chinese_row.grid(row=2, column=0, sticky="ew", pady=(6, 0))
+        chinese_row.columnconfigure(0, weight=1)
+        ttk.Label(chinese_row, textvariable=self.encyclopedia_chinese_var, style="LargeValue.TLabel", wraplength=620, justify="left").grid(row=0, column=0, sticky="w")
+        ttk.Button(chinese_row, text="????", command=self.copy_encyclopedia_chinese).grid(row=0, column=1, padx=(8, 0))
+
+        ttk.Label(right_frame, textvariable=self.encyclopedia_subtitle_var, style="Value.TLabel", wraplength=620, justify="left").grid(row=3, column=0, sticky="w", pady=(4, 0))
+
+        ttk.Label(right_frame, text="Wiki ??", style="Header.TLabel").grid(row=4, column=0, sticky="w", pady=(12, 4))
         self.encyclopedia_summary_text = ScrolledText(right_frame, height=10, wrap="word")
-        self.encyclopedia_summary_text.grid(row=4, column=0, sticky="nsew")
+        self.encyclopedia_summary_text.grid(row=5, column=0, sticky="nsew")
         self.encyclopedia_summary_text.configure(state="disabled")
 
-        ttk.Label(right_frame, text="离线资料详情", style="Header.TLabel").grid(row=5, column=0, sticky="w", pady=(12, 4))
+        ttk.Label(right_frame, text="??????", style="Header.TLabel").grid(row=6, column=0, sticky="w", pady=(12, 4))
         self.encyclopedia_facts_text = ScrolledText(right_frame, height=14, wrap="word")
-        self.encyclopedia_facts_text.grid(row=6, column=0, sticky="nsew")
+        self.encyclopedia_facts_text.grid(row=7, column=0, sticky="nsew")
         self.encyclopedia_facts_text.configure(state="disabled")
-        right_frame.rowconfigure(6, weight=1)
+        right_frame.rowconfigure(7, weight=1)
 
     def bind_events(self) -> None:
         self.search_var.trace_add("write", lambda *_: self.schedule_filter())
@@ -600,6 +635,7 @@ class OfflineAssistantApp:
             return
 
         self.data = loaded
+        self.translation_map = build_translation_map(loaded.records)
         self.path_var.set(str(csv_path))
         self.category_combo["values"] = [ALL_CATEGORIES] + [name for name, _ in loaded.category_counts]
         self.kind_combo["values"] = [ALL_KINDS] + [name for name, _ in loaded.kind_counts]
@@ -743,20 +779,51 @@ class OfflineAssistantApp:
                 return section_id
         return self.encyclopedia_section_choices[0][0] if self.encyclopedia_section_choices else ""
 
+    def resolve_encyclopedia_chinese_title(self, entry: dict[str, str]) -> str:
+        chinese_title = clean_cell(entry.get("chinese_title", ""))
+        if chinese_title:
+            return chinese_title
+        for candidate in build_lookup_candidates(entry.get("title", "")):
+            translated = self.translation_map.get(candidate, "")
+            if translated:
+                return translated
+        return ""
+
     def refresh_encyclopedia_view(self) -> None:
         section_id = self.current_section_id()
         entries = self.knowledge_base.get_section_entries(section_id) if section_id else []
         tokens = [token for token in normalize_text(self.encyclopedia_search_var.get()).split(" ") if token]
         self.encyclopedia_visible_entries = []
         for entry in entries:
-            search_blob = normalize_text(" ".join([entry.get("title", ""), entry.get("subtitle", ""), entry.get("summary", ""), entry.get("facts_text", "")]))
+            display_entry = dict(entry)
+            display_entry["resolved_chinese_title"] = self.resolve_encyclopedia_chinese_title(entry)
+            search_blob = normalize_text(
+                " ".join(
+                    [
+                        display_entry.get("title", ""),
+                        display_entry.get("resolved_chinese_title", ""),
+                        display_entry.get("subtitle", ""),
+                        display_entry.get("summary", ""),
+                        display_entry.get("facts_text", ""),
+                    ]
+                )
+            )
             if tokens and any(token not in search_blob for token in tokens):
                 continue
-            self.encyclopedia_visible_entries.append(entry)
+            self.encyclopedia_visible_entries.append(display_entry)
 
         self.encyclopedia_tree.delete(*self.encyclopedia_tree.get_children())
         for index, entry in enumerate(self.encyclopedia_visible_entries):
-            self.encyclopedia_tree.insert("", "end", iid=str(index), values=(entry.get("title", ""), entry.get("subtitle", "")))
+            self.encyclopedia_tree.insert(
+                "",
+                "end",
+                iid=str(index),
+                values=(
+                    entry.get("title", ""),
+                    entry.get("resolved_chinese_title", "") or "-",
+                    entry.get("subtitle", ""),
+                ),
+            )
         if self.encyclopedia_visible_entries:
             self.encyclopedia_tree.selection_set("0")
             self.encyclopedia_tree.focus("0")
@@ -766,14 +833,16 @@ class OfflineAssistantApp:
 
     def clear_encyclopedia_detail(self) -> None:
         self.encyclopedia_title_var.set("-")
+        self.encyclopedia_chinese_var.set("-")
         self.encyclopedia_subtitle_var.set("-")
         self.encyclopedia_image_ref = None
-        self.encyclopedia_image_label.configure(image="", text="暂无图标")
+        self.encyclopedia_image_label.configure(image="", text="????")
         set_text_widget(self.encyclopedia_summary_text, "")
         set_text_widget(self.encyclopedia_facts_text, "")
 
     def update_encyclopedia_detail(self, entry: dict[str, str]) -> None:
         self.encyclopedia_title_var.set(entry.get("title", "-"))
+        self.encyclopedia_chinese_var.set(entry.get("resolved_chinese_title", "") or "??????")
         self.encyclopedia_subtitle_var.set(entry.get("subtitle", "-"))
         summary = entry.get("summary", "")
         facts = entry.get("facts_text", "")
@@ -786,7 +855,7 @@ class OfflineAssistantApp:
         if image is not None:
             self.encyclopedia_image_label.configure(image=image, text="")
         else:
-            self.encyclopedia_image_label.configure(image="", text="暂无图标")
+            self.encyclopedia_image_label.configure(image="", text="????")
 
     def on_encyclopedia_selection(self, _event=None) -> None:
         selection = self.encyclopedia_tree.selection()
@@ -797,7 +866,10 @@ class OfflineAssistantApp:
             self.update_encyclopedia_detail(self.encyclopedia_visible_entries[index])
 
     def copy_encyclopedia_title(self) -> None:
-        self.copy_to_clipboard(self.encyclopedia_title_var.get(), "已复制资料名称")
+        self.copy_to_clipboard(self.encyclopedia_title_var.get(), "???????")
+
+    def copy_encyclopedia_chinese(self) -> None:
+        self.copy_to_clipboard(self.encyclopedia_chinese_var.get(), "?????????")
 
     def start_sync(self) -> None:
         if self.sync_thread is not None and self.sync_thread.is_alive():

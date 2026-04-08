@@ -125,6 +125,46 @@ def read_csv_name_set(csv_path: Path) -> tuple[set[str], int]:
     return names, len(rows)
 
 
+def build_translation_map(csv_path: Path) -> dict[str, str]:
+    rows = parse_tabular_csv(csv_path)
+    translation_counters: dict[str, dict[str, int]] = {}
+
+    for row in rows:
+        english_name = clean_text(row.get("english", ""))
+        chinese_name = clean_text(row.get("chinese_simplified", ""))
+        if not english_name or english_name == "(None)" or not chinese_name or chinese_name == "(None)":
+            continue
+
+        normalized_name = normalize_text(english_name)
+        translation_counters.setdefault(normalized_name, {})
+        translation_counters[normalized_name][chinese_name] = translation_counters[normalized_name].get(chinese_name, 0) + 1
+
+    translations: dict[str, str] = {}
+    for normalized_name, counter in translation_counters.items():
+        translations[normalized_name] = sorted(counter.items(), key=lambda item: (-item[1], item[0]))[0][0]
+    return translations
+
+
+def translation_candidates(english_name: str) -> list[str]:
+    raw_name = clean_text(english_name)
+    candidates = [normalize_text(raw_name)]
+    if raw_name.endswith(" (DIY recipe)"):
+        candidates.append(normalize_text(raw_name[: -len(" (DIY recipe)")]))
+    if raw_name.endswith(" (No Variations)"):
+        candidates.append(normalize_text(raw_name[: -len(" (No Variations)")]))
+    if raw_name.endswith(" (forgery)"):
+        candidates.append(normalize_text(raw_name[: -len(" (forgery)")]))
+    return list(dict.fromkeys([candidate for candidate in candidates if candidate]))
+
+
+def resolve_chinese_title(english_name: str, translation_map: dict[str, str]) -> str:
+    for candidate in translation_candidates(english_name):
+        chinese_name = translation_map.get(candidate, "")
+        if chinese_name:
+            return chinese_name
+    return ""
+
+
 def request_json(params: dict[str, str], *, use_post: bool = False, retry: int = 3) -> dict:
     encoded = urlencode(params).encode("utf-8")
     error: Exception | None = None
@@ -594,6 +634,7 @@ def make_item_entry(
     *,
     entry_id: str,
     title: str,
+    chinese_title: str = "",
     dataset_id: str,
     page_title: str,
     image_url: str,
@@ -602,6 +643,7 @@ def make_item_entry(
     return {
         "id": entry_id,
         "title": clean_text(title),
+        "chinese_title": clean_text(chinese_title),
         "dataset_id": dataset_id,
         "dataset_label": ITEM_DATASET_LABELS[dataset_id],
         "page_title": clean_text(page_title),
@@ -617,6 +659,7 @@ def make_section_entry(
     *,
     entry_id: str,
     title: str,
+    chinese_title: str = "",
     subtitle: str,
     page_title: str,
     image_url: str,
@@ -626,6 +669,7 @@ def make_section_entry(
     return {
         "id": entry_id,
         "title": clean_text(title),
+        "chinese_title": clean_text(chinese_title),
         "subtitle": clean_text(subtitle),
         "page_title": clean_text(page_title),
         "wiki_url": format_wiki_url(page_title) if page_title else "",
@@ -647,6 +691,7 @@ def sync_offline_data(
 ) -> dict[str, object]:
     cache_dir.mkdir(parents=True, exist_ok=True)
     csv_names, csv_row_count = read_csv_name_set(csv_path)
+    translation_map = build_translation_map(csv_path)
     emit(progress, f"已读取 CSV，共 {csv_row_count} 行，唯一英文名 {len(csv_names)} 个")
 
     item_entries: dict[str, dict[str, str]] = {}
@@ -1315,6 +1360,7 @@ def sync_helper_cache(
         item_entry = make_item_entry(
             entry_id=stable_id("item", f"recipe:{row.get('name', '')}"),
             title=row.get("name", ""),
+            chinese_title=resolve_chinese_title(row.get("name", ""), translation_map),
             dataset_id="recipes",
             page_title=row.get("page_title", ""),
             image_url=row.get("image_url", ""),
@@ -1326,6 +1372,7 @@ def sync_helper_cache(
             make_section_entry(
                 entry_id=stable_id("section", f"recipes:{row.get('name', '')}"),
                 title=row.get("name", ""),
+                chinese_title=resolve_chinese_title(row.get("name", ""), translation_map),
                 subtitle=build_subtitle([format_bells(row.get("sell")), build_recipe_materials(row)]),
                 page_title=row.get("page_title", ""),
                 image_url=row.get("image_url", ""),
@@ -1343,6 +1390,7 @@ def sync_helper_cache(
         item_entry = make_item_entry(
             entry_id=stable_id("item", f"art:{row.get('name', '')}"),
             title=row.get("name", ""),
+            chinese_title=resolve_chinese_title(row.get("name", ""), translation_map),
             dataset_id="art",
             page_title=row.get("page_title", ""),
             image_url=row.get("image_url", ""),
