@@ -1479,35 +1479,54 @@ class OfflineAssistantApp:
 
             preview_entry = self.pattern_repository.ensure_preview_cached(entry.id) if self.pattern_repository else entry
             preview_path = self.pattern_repository.image_path(preview_entry.preview_rel_path) if self.pattern_repository else None
-            image = load_photo_image(preview_path, max_size=128)
+            image = load_photo_image(preview_path, max_size=148 if get_pattern_collection(entry) == "simple" else 128)
             self.pattern_card_images.append(image)
             has_acnl = pattern_has_acnl(entry)
             has_nhd = pattern_has_nhd(entry)
 
-            preview_label = tk.Label(card, image=image, text="暂无预览" if image is None else "", compound="top", bg="#2f2448", fg="#f5ecff")
+            preview_label = tk.Label(card, image=image, text="????" if image is None else "", compound="top", bg="#2f2448", fg="#f5ecff", cursor="hand2")
             preview_label.grid(row=0, column=0, padx=10, pady=(10, 6))
-            badge_frame = tk.Frame(card, bg="#2f2448")
-            badge_frame.place(relx=1.0, x=-8, y=8, anchor="ne")
-            tk.Label(
-                badge_frame,
+            title_label = tk.Label(card, text=entry.title or "???", wraplength=150, justify="center", bg="#2f2448", fg="#f5ecff", font=("Microsoft YaHei UI", 10, "bold"))
+            title_label.grid(row=1, column=0, padx=10, pady=(0, 6), sticky="ew")
+
+            format_row = tk.Frame(card, bg="#2f2448")
+            format_row.grid(row=2, column=0, padx=10, pady=(0, 10), sticky="ew")
+            format_row.columnconfigure(0, weight=1)
+            format_row.columnconfigure(1, weight=1)
+
+            acnl_button = tk.Button(
+                format_row,
                 text="ACNL",
+                relief="flat",
+                bd=0,
                 bg="#22c55e" if has_acnl else "#4b5563",
                 fg="#ffffff",
+                activebackground="#16a34a",
+                activeforeground="#ffffff",
                 font=("Microsoft YaHei UI", 8, "bold"),
                 padx=6,
-                pady=2,
-            ).grid(row=0, column=0, padx=(0, 4))
-            tk.Label(
-                badge_frame,
+                pady=3,
+                cursor="hand2" if has_acnl else "arrow",
+                command=(lambda selected_entry=entry: self.download_pattern_acnl_async(selected_entry)) if has_acnl else None,
+            )
+            acnl_button.grid(row=0, column=0, sticky="ew", padx=(0, 4))
+
+            nhd_button = tk.Button(
+                format_row,
                 text="NHD",
+                relief="flat",
+                bd=0,
                 bg="#38bdf8" if has_nhd else "#4b5563",
                 fg="#ffffff",
+                activebackground="#0ea5e9",
+                activeforeground="#ffffff",
                 font=("Microsoft YaHei UI", 8, "bold"),
                 padx=6,
-                pady=2,
-            ).grid(row=0, column=1)
-            title_label = tk.Label(card, text=entry.title or "未命名", wraplength=150, justify="center", bg="#2f2448", fg="#f5ecff", font=("Microsoft YaHei UI", 10, "bold"))
-            title_label.grid(row=1, column=0, padx=10, pady=(0, 10), sticky="ew")
+                pady=3,
+                cursor="hand2" if has_nhd else "arrow",
+                command=(lambda selected_entry=entry: self.export_pattern_as_nhd_async(selected_entry)) if has_nhd else None,
+            )
+            nhd_button.grid(row=0, column=1, sticky="ew", padx=(4, 0))
 
             for widget in (card, title_label):
                 widget.bind("<Button-1>", lambda _event, selected_entry=entry: self.select_pattern_entry(selected_entry))
@@ -1577,8 +1596,19 @@ class OfflineAssistantApp:
             selected_entry = self.pattern_visible_entries[0]
 
         preferred = (self.pattern_export_format_var.get() or "acnl").lower()
-        self.status_var.set(f"正在准备导出：{selected_entry.title}")
+        self.status_var.set(f"???????{selected_entry.title}")
         self._run_pattern_task("export-pattern-default", lambda: self.pattern_repository.prepare_export_file(selected_entry.id, preferred))
+
+    def export_pattern_as_nhd_async(self, entry: PatternEntry | None = None) -> None:
+        if self.pattern_repository is None:
+            return
+        selected_entry = entry or self.selected_pattern_entry
+        if selected_entry is None:
+            if not self.pattern_visible_entries:
+                return
+            selected_entry = self.pattern_visible_entries[0]
+        self.status_var.set(f"?????? NHD?{selected_entry.title}")
+        self._run_pattern_task("export-pattern-default", lambda: self.pattern_repository.prepare_export_file(selected_entry.id, "nhd"))
 
     def open_selected_pattern_preview_for_entry(self, entry: PatternEntry) -> None:
         self.selected_pattern_entry = entry
