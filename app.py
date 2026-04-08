@@ -4,6 +4,7 @@ import argparse
 import json
 import math
 import queue
+import shutil
 import sqlite3
 import sys
 import threading
@@ -179,6 +180,14 @@ def get_pattern_collection(entry: PatternEntry) -> str:
     if "/pro/" in value or value.startswith("pro::") or entry.nhd_rel_path.lower().endswith(".nhpd"):
         return "pro"
     return "other"
+
+
+def pattern_has_acnl(entry: PatternEntry) -> bool:
+    return bool(entry.acnl_rel_path or entry.acnl_url)
+
+
+def pattern_has_nhd(entry: PatternEntry) -> bool:
+    return bool(entry.nhd_rel_path or entry.nhd_url)
 
 
 def open_connection(db_path: Path) -> sqlite3.Connection:
@@ -403,6 +412,7 @@ class OfflineAssistantApp:
         self.pattern_search_var = tk.StringVar()
         self.pattern_saved_only_var = tk.BooleanVar(value=False)
         self.pattern_category_var = tk.StringVar(value="all")
+        self.pattern_export_format_var = tk.StringVar(value="acnl")
         self.pattern_title_var = tk.StringVar(value="-")
         self.pattern_creator_var = tk.StringVar(value="-")
         self.pattern_type_var = tk.StringVar(value="-")
@@ -967,15 +977,17 @@ class OfflineAssistantApp:
         self.pattern_search_entry.grid(row=0, column=1, sticky="ew", padx=(0, 12))
         self.pattern_category_combo = ttk.Combobox(control_frame, textvariable=self.pattern_category_var, state="readonly", values=("all", "simple", "pro"), width=12)
         self.pattern_category_combo.grid(row=0, column=2, padx=(0, 12))
-        ttk.Checkbutton(control_frame, text="仅显示已保存", variable=self.pattern_saved_only_var, command=self.refresh_pattern_view).grid(row=0, column=3, padx=(0, 12))
+        self.pattern_export_format_combo = ttk.Combobox(control_frame, textvariable=self.pattern_export_format_var, state="readonly", values=("acnl", "nhd"), width=10)
+        self.pattern_export_format_combo.grid(row=0, column=3, padx=(0, 12))
+        ttk.Checkbutton(control_frame, text="仅显示已保存", variable=self.pattern_saved_only_var, command=self.refresh_pattern_view).grid(row=0, column=4, padx=(0, 12))
         self.pattern_refresh_button = ttk.Button(control_frame, text="刷新索引", command=self.refresh_pattern_index_async)
-        self.pattern_refresh_button.grid(row=0, column=4, padx=(0, 8))
-        self.pattern_download_button = ttk.Button(control_frame, text="下载 ACNL", command=self.download_selected_pattern_async)
-        self.pattern_download_button.grid(row=0, column=5, padx=(0, 8))
+        self.pattern_refresh_button.grid(row=0, column=5, padx=(0, 8))
+        self.pattern_download_button = ttk.Button(control_frame, text="另存默认格式", command=self.export_selected_pattern_default)
+        self.pattern_download_button.grid(row=0, column=6, padx=(0, 8))
         self.pattern_import_button = ttk.Button(control_frame, text="导入本地图案", command=self.import_local_patterns)
-        self.pattern_import_button.grid(row=0, column=6, padx=(0, 8))
-        ttk.Button(control_frame, text="打开离线站点", command=self.open_pattern_mirror_site).grid(row=0, column=7, padx=(0, 8))
-        ttk.Button(control_frame, text="查看大图", command=self.open_selected_pattern_preview).grid(row=0, column=8)
+        self.pattern_import_button.grid(row=0, column=7, padx=(0, 8))
+        ttk.Button(control_frame, text="打开离线站点", command=self.open_pattern_mirror_site).grid(row=0, column=8, padx=(0, 8))
+        ttk.Button(control_frame, text="查看大图", command=self.open_selected_pattern_preview).grid(row=0, column=9)
 
         paned = ttk.Panedwindow(self.patterns_tab, orient="horizontal")
         paned.grid(row=1, column=0, sticky="nsew")
@@ -1469,15 +1481,38 @@ class OfflineAssistantApp:
             preview_path = self.pattern_repository.image_path(preview_entry.preview_rel_path) if self.pattern_repository else None
             image = load_photo_image(preview_path, max_size=128)
             self.pattern_card_images.append(image)
+            has_acnl = pattern_has_acnl(entry)
+            has_nhd = pattern_has_nhd(entry)
 
             preview_label = tk.Label(card, image=image, text="暂无预览" if image is None else "", compound="top", bg="#2f2448", fg="#f5ecff")
             preview_label.grid(row=0, column=0, padx=10, pady=(10, 6))
+            badge_frame = tk.Frame(card, bg="#2f2448")
+            badge_frame.place(relx=1.0, x=-8, y=8, anchor="ne")
+            tk.Label(
+                badge_frame,
+                text="ACNL",
+                bg="#22c55e" if has_acnl else "#4b5563",
+                fg="#ffffff",
+                font=("Microsoft YaHei UI", 8, "bold"),
+                padx=6,
+                pady=2,
+            ).grid(row=0, column=0, padx=(0, 4))
+            tk.Label(
+                badge_frame,
+                text="NHD",
+                bg="#38bdf8" if has_nhd else "#4b5563",
+                fg="#ffffff",
+                font=("Microsoft YaHei UI", 8, "bold"),
+                padx=6,
+                pady=2,
+            ).grid(row=0, column=1)
             title_label = tk.Label(card, text=entry.title or "未命名", wraplength=150, justify="center", bg="#2f2448", fg="#f5ecff", font=("Microsoft YaHei UI", 10, "bold"))
             title_label.grid(row=1, column=0, padx=10, pady=(0, 10), sticky="ew")
 
-            for widget in (card, preview_label, title_label):
+            for widget in (card, title_label):
                 widget.bind("<Button-1>", lambda _event, selected_entry=entry: self.select_pattern_entry(selected_entry))
-                widget.bind("<Double-Button-1>", lambda _event, selected_entry=entry: self.download_pattern_acnl_async(selected_entry))
+            preview_label.bind("<Button-1>", lambda _event, selected_entry=entry: self.export_pattern_default_async(selected_entry))
+            preview_label.bind("<Double-Button-1>", lambda _event, selected_entry=entry: self.open_selected_pattern_preview_for_entry(selected_entry))
             self.pattern_card_widgets.append(card)
 
         if self.pattern_visible_entries:
@@ -1529,6 +1564,26 @@ class OfflineAssistantApp:
         self.selected_pattern_entry = entry
         self.update_pattern_detail(entry)
 
+    def export_selected_pattern_default(self) -> None:
+        self.export_pattern_default_async()
+
+    def export_pattern_default_async(self, entry: PatternEntry | None = None) -> None:
+        if self.pattern_repository is None:
+            return
+        selected_entry = entry or self.selected_pattern_entry
+        if selected_entry is None:
+            if not self.pattern_visible_entries:
+                return
+            selected_entry = self.pattern_visible_entries[0]
+
+        preferred = (self.pattern_export_format_var.get() or "acnl").lower()
+        self.status_var.set(f"正在准备导出：{selected_entry.title}")
+        self._run_pattern_task("export-pattern-default", lambda: self.pattern_repository.prepare_export_file(selected_entry.id, preferred))
+
+    def open_selected_pattern_preview_for_entry(self, entry: PatternEntry) -> None:
+        self.selected_pattern_entry = entry
+        self.open_selected_pattern_preview()
+
     def download_pattern_acnl_async(self, entry: PatternEntry | None = None) -> None:
         if self.pattern_repository is None:
             return
@@ -1539,6 +1594,24 @@ class OfflineAssistantApp:
             selected_entry = self.pattern_visible_entries[0]
         self.status_var.set(f"正在下载 ACNL：{selected_entry.title}")
         self._run_pattern_task("download-pattern-acnl", lambda: self.pattern_repository.download_pattern_acnl(selected_entry.id))
+
+    def save_exported_pattern_file(self, entry: PatternEntry, source_path: Path, suffix: str) -> None:
+        default_name = f"{entry.title or 'pattern'}{suffix}"
+        save_path = filedialog.asksaveasfilename(
+            title="另存设计图文件",
+            initialfile=default_name,
+            defaultextension=suffix,
+            filetypes=(
+                ("ACNL 文件", "*.acnl"),
+                ("NHD/NHPD 文件", "*.nhd *.nhpd"),
+                ("所有文件", "*.*"),
+            ),
+        )
+        if not save_path:
+            self.status_var.set("已取消导出")
+            return
+        shutil.copy2(source_path, save_path)
+        self.status_var.set(f"已导出：{Path(save_path).name}")
 
     def _run_pattern_task(self, task_name: str, callback) -> None:
         if self.pattern_thread is not None and self.pattern_thread.is_alive():
@@ -1686,6 +1759,12 @@ class OfflineAssistantApp:
                     elif task_name == "download-pattern":
                         self.refresh_pattern_view()
                         self.status_var.set(f"已下载设计图：{payload.title}")
+                    elif task_name == "download-pattern-acnl":
+                        source_path = self.pattern_repository.data_dir / payload.acnl_rel_path
+                        self.save_exported_pattern_file(payload, source_path, ".acnl")
+                    elif task_name == "export-pattern-default":
+                        entry, source_path, suffix = payload
+                        self.save_exported_pattern_file(entry, source_path, suffix)
                     elif task_name == "install-nhse":
                         self.refresh_tool_states()
                         self.status_var.set(f"NHSE 已安装：{payload[0]}")
