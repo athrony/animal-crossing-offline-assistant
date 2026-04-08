@@ -140,10 +140,12 @@ def sort_records(records: list[ItemRecord], column: str, descending: bool) -> li
     return sorted(records, key=sort_key, reverse=descending)
 
 
-def load_photo_image(image_path: Path | None, *, max_size: int = 180) -> tk.PhotoImage | None:
+def load_photo_image(image_path: Path | None, *, max_size: int = 180, scale_up: int = 1) -> tk.PhotoImage | None:
     if image_path is None or not image_path.exists():
         return None
     image = tk.PhotoImage(file=str(image_path))
+    if scale_up > 1 and image.width() < max_size and image.height() < max_size:
+        image = image.zoom(scale_up, scale_up)
     factor = max(1, math.ceil(max(image.width() / max_size, image.height() / max_size)))
     if factor > 1:
         image = image.subsample(factor, factor)
@@ -1479,7 +1481,11 @@ class OfflineAssistantApp:
 
             preview_entry = self.pattern_repository.ensure_preview_cached(entry.id) if self.pattern_repository else entry
             preview_path = self.pattern_repository.image_path(preview_entry.preview_rel_path) if self.pattern_repository else None
-            image = load_photo_image(preview_path, max_size=148 if get_pattern_collection(entry) == "simple" else 128)
+            image = load_photo_image(
+                preview_path,
+                max_size=148 if get_pattern_collection(entry) == "simple" else 128,
+                scale_up=2 if get_pattern_collection(entry) == "simple" else 1,
+            )
             self.pattern_card_images.append(image)
             has_acnl = pattern_has_acnl(entry)
             has_nhd = pattern_has_nhd(entry)

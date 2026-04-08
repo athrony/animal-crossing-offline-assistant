@@ -69,13 +69,36 @@ if (Test-Path $seedDbPath) {
 Invoke-Step -Label "Build SQLite database" -Command $dbCommand
 
 $databasePath = Join-Path $dataPath "animal_crossing_offline.db"
-$patternCommand = "from pathlib import Path; from tool_support import sync_pattern_mirror; from pattern_support import PatternRepository; base = Path(r'$dataPath'); mirror = sync_pattern_mirror(base, Path.home() / 'Documents' / '.tmp_pattern_dump_index'); repo = PatternRepository(Path(r'$databasePath')); print(repo.refresh_site_index()); print(repo.refresh_local_mirror_index(mirror))"
+$env:ACA_DATA_PATH = $dataPath
+$env:ACA_DATABASE_PATH = $databasePath
+$env:ACA_MIRROR_HINT = Join-Path $HOME "Documents\.tmp_pattern_dump_index"
+$patternBootstrap = @"
+import os
+from pathlib import Path
+from tool_support import sync_pattern_mirror
+from pattern_support import PatternRepository
+
+base = Path(os.environ["ACA_DATA_PATH"])
+mirror = sync_pattern_mirror(base, Path(os.environ["ACA_MIRROR_HINT"]))
+repo = PatternRepository(Path(os.environ["ACA_DATABASE_PATH"]))
+
+try:
+    print(repo.refresh_site_index())
+except Exception as ex:
+    print("skip_remote_index:", ex)
+
+print(repo.refresh_local_mirror_index(mirror))
+"@
+$patternBootstrapPath = Join-Path $scriptRoot ".tmp_preload_patterns.py"
+Set-Content -LiteralPath $patternBootstrapPath -Value $patternBootstrap -Encoding UTF8
 Invoke-Step -Label "Preload pattern index and local mirror" -Command @(
     "py",
     "-$PythonVersion",
-    "-c",
-    $patternCommand
+    $patternBootstrapPath
 )
+if (Test-Path $patternBootstrapPath) {
+    Remove-Item -LiteralPath $patternBootstrapPath -Force
+}
 
 if (Test-Path $distPath) {
     Remove-Item -LiteralPath $distPath -Recurse -Force
