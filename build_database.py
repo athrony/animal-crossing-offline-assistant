@@ -404,7 +404,7 @@ def insert_knowledge(
 def copy_images(source_images_dir: Path | None, target_images_dir: Path) -> int:
     if source_images_dir is None or not source_images_dir.exists():
         if target_images_dir.exists():
-            shutil.rmtree(target_images_dir)
+            return len(list(target_images_dir.rglob("*.*")))
         return 0
 
     if target_images_dir.exists():
@@ -538,7 +538,7 @@ def build_database(
             connection,
             {
                 "generated_at": datetime.now().isoformat(timespec="seconds"),
-                "csv_path": str(csv_path),
+                "csv_path": csv_path.name,
                 "csv_encoding": csv_encoding,
                 "csv_delimiter": repr(csv_delimiter),
                 "csv_rows": str(len(csv_rows)),
@@ -561,7 +561,7 @@ def build_database(
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Build a simplified SQLite database for the offline assistant")
-    parser.add_argument("--csv", default=r"items.csv", help="Path to items.csv")
+    parser.add_argument("--csv", default=str(Path.home() / "Documents" / "items.csv"), help="Path to items.csv")
     parser.add_argument(
         "--knowledge-base",
         default=str(Path("offline_cache") / "knowledge_base.json"),

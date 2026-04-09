@@ -1,7 +1,7 @@
 param(
     [string]$PythonVersion = "3.11",
-    [string]$CsvPath = "items.csv",
-    [string]$NhseRoot = "%TEMP%\AnimalCrossingOfflineAssistant\.tmp_nhse"
+    [string]$CsvPath = (Join-Path ([Environment]::GetFolderPath("MyDocuments")) "items.csv"),
+    [string]$NhseRoot = (Join-Path $env:TEMP "AnimalCrossingOfflineAssistant\\.tmp_nhse")
 )
 
 $ErrorActionPreference = "Stop"
@@ -101,7 +101,7 @@ if (Test-Path $patternBootstrapPath) {
 }
 
 if (Test-Path $distPath) {
-    Remove-Item -LiteralPath $distPath -Recurse -Force
+    Get-ChildItem -LiteralPath $distPath -Force | Remove-Item -Recurse -Force
 }
 
 if (Test-Path $buildPath) {
