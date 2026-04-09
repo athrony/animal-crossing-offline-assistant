@@ -550,11 +550,15 @@ class PatternRepository:
 
     def prepare_qr_file(self, entry_id: int) -> tuple[PatternEntry, Path, str]:
         entry = self.ensure_preview_cached(entry_id)
-        if entry.qr_rel_path:
-            source_path = self.data_dir / entry.qr_rel_path
-            if source_path.exists():
-                return entry, source_path, ".png"
-        raise ValueError("This pattern does not provide a QR image.")
+        qr_path = self.image_path(entry.qr_rel_path)
+        if qr_path is not None:
+            return entry, qr_path, ".png"
+
+        preview_path = self.image_path(entry.preview_rel_path)
+        if preview_path is not None:
+            return entry, preview_path, ".png"
+
+        raise ValueError("This pattern does not provide a QR or PNG image.")
 
     def import_pattern_files(self, file_paths: Iterable[Path]) -> int:
         inserted = 0

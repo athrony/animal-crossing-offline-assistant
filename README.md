@@ -1,53 +1,39 @@
 # Animal Crossing Offline Assistant
 
-一个为《集合啦！动物森友会》准备的本地离线助手，支持物品查询、离线百科、设计图浏览与下载。
+![Software Preview](docs/preview.png)
 
-An offline desktop helper for Animal Crossing: New Horizons, focused on item lookup, encyclopedia browsing, and pattern collection management.
+动森离线助手是一个面向《集合啦！动物森友会》的本地桌面工具，提供物品中英对照、离线百科、设计图浏览导出，以及存档相关工具入口。
+
+Animal Crossing Offline Assistant is a local desktop helper for Animal Crossing: New Horizons, focused on bilingual item lookup, offline encyclopedia browsing, pattern export, and save-tool integration.
 
 ## 中文说明
 
-这个项目现在已经不依赖 `items.csv` 直接运行。
+当前仓库已内置运行所需的核心数据与构建脚本，不再依赖运行时直接读取 `items.csv`。
 
-仓库里自带：
+主要功能：
 
-- SQLite 本地数据库
-- 清理过的物品表，去掉了空名称条目
-- 离线百科数据
-- NHSE 提供的物品图标和村民头像资源
-- 设计图索引、下载与导入功能
-- Windows EXE 打包产物
+- 物品数据库中英文对照搜索
+- 分类筛选、类型筛选、复制英文或中文名称
+- 离线百科与图鉴浏览
+- 设计图中心本地浏览、导出 `.acnl`、`.nhd/.nhpd`、`QR/PNG`
+- 本地镜像优先的设计图资源访问
+- 集成 NHSE 与 ACNHDesignPatternEditor 启动入口
+- 支持中英界面切换，默认中文
 
-当前主要功能：
-
-- 物品搜索、分类筛选、中英文对照
-- 离线百科浏览
-- 左侧菜单切换页面、右侧卡片式内容区
-- 设计图网站索引浏览
-- 下载 `.nhd`、`.acnl`、QR PNG
-- 导入本地图案文件
-- 一键下载并启动 NHSE
-- 一键下载并启动 ACNHDesignPatternEditor
-- 一键同步整个 ACNH Pattern Dump Index 到本地镜像后离线浏览
-
-主要文件：
+仓库包含：
 
 - `app.py`：桌面应用主程序
-- `build_database.py`：数据库构建器
-- `pattern_support.py`：设计图索引与下载管理
-- `build.ps1`：重建数据库并打包 EXE
-- `data/animal_crossing_offline.db`：运行数据库
-- `dist/ItemsBilingualViewer.exe`：打包好的 EXE
+- `pattern_support.py`：设计图索引、缓存与导出逻辑
+- `tool_support.py`：NHSE、设计图编辑器、本地镜像相关逻辑
+- `build_database.py`：SQLite 数据库构建脚本
+- `build.ps1`：一键构建数据库并打包 EXE
+- `data/animal_crossing_offline.db`：主数据库
+- `dist/ItemsBilingualViewer.exe`：已打包的 Windows EXE
 
 本地运行：
 
 ```powershell
 py -3.11 app.py
-```
-
-重建数据库：
-
-```powershell
-py -3.11 build_database.py --csv items.csv --output-dir data
 ```
 
 自检：
@@ -56,7 +42,7 @@ py -3.11 build_database.py --csv items.csv --output-dir data
 py -3.11 app.py --self-test
 ```
 
-打包：
+重新打包：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\build.ps1
@@ -64,28 +50,44 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 
 ## English
 
-This project no longer depends on `items.csv` at runtime.
-
-It ships with:
-
-- a bundled SQLite database
-- a cleaned item table with empty-name rows removed
-- offline encyclopedia content
-- NHSE-derived item icons and villager portraits
-- built-in pattern browsing, download, and import support
-- a packaged Windows EXE
+This repository ships with the core data and scripts needed to run the app locally. It does not depend on loading `items.csv` at runtime.
 
 Key features:
 
-- item search with bilingual names
-- encyclopedia browsing
-- sidebar navigation with page switching
-- pattern index browsing
-- `.nhd`, `.acnl`, and QR image downloads
-- local pattern import support
-- one-click download and launch for NHSE
-- one-click download and launch for ACNHDesignPatternEditor
-- full local mirror sync for ACNH Pattern Dump Index
+- bilingual item lookup with Chinese and English names
+- category and type filters with one-click copy for names
+- offline encyclopedia browsing
+- local-first pattern browsing and export for `.acnl`, `.nhd/.nhpd`, and `QR/PNG`
+- built-in launchers for NHSE and ACNHDesignPatternEditor
+- Chinese and English UI switching, with Chinese as the default
+
+Important files:
+
+- `app.py`: desktop application entry point
+- `pattern_support.py`: pattern indexing, cache, and export logic
+- `tool_support.py`: external tool and local mirror integration
+- `build_database.py`: SQLite database builder
+- `build.ps1`: rebuild and package script
+- `data/animal_crossing_offline.db`: main database
+- `dist/ItemsBilingualViewer.exe`: packaged Windows executable
+
+Run locally:
+
+```powershell
+py -3.11 app.py
+```
+
+Self-test:
+
+```powershell
+py -3.11 app.py --self-test
+```
+
+Package the EXE:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\build.ps1
+```
 
 ## Data Sources
 
@@ -97,4 +99,4 @@ Key features:
 
 ## License
 
-This repository is distributed under GPL-3.0 because it includes and derives data/assets from GPL-3.0 projects such as NHSE and ACNHDesignPatternEditor.
+This repository is distributed under GPL-3.0 because it includes and derives data or assets from GPL-3.0 projects such as NHSE and ACNHDesignPatternEditor.

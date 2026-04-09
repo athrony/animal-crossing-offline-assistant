@@ -19,7 +19,9 @@ from pattern_support import PatternEntry, PatternRepository
 from tool_support import ExternalToolRepository, launch_executable
 
 
-APP_TITLE = "动森离线助手"
+APP_TITLE_ZH = "动森离线助手"
+APP_TITLE_EN = "Animal Crossing Offline Assistant"
+APP_TITLE = APP_TITLE_ZH
 DATABASE_FILENAME = "animal_crossing_offline.db"
 DATA_DIRNAME = "data"
 IMAGES_DIRNAME = "images"
@@ -33,6 +35,24 @@ DISPLAY_COLUMNS = (
     ("item_kind", "类型", 220, "w"),
     ("item_kind_code", "类型编码", 100, "center"),
 )
+DISPLAY_COLUMN_TITLES = {
+    "zh": {
+        "item_id": "ID",
+        "english": "English",
+        "chinese_simplified": "中文简体",
+        "category_zh": "分类",
+        "item_kind": "类型",
+        "item_kind_code": "类型编码",
+    },
+    "en": {
+        "item_id": "ID",
+        "english": "English",
+        "chinese_simplified": "Simplified Chinese",
+        "category_zh": "Category",
+        "item_kind": "Type",
+        "item_kind_code": "Kind Code",
+    },
+}
 SECTION_LABELS = {
     "fish": "鱼类图鉴",
     "bugs": "昆虫图鉴",
@@ -43,6 +63,85 @@ SECTION_LABELS = {
     "fossils": "化石",
     "events": "活动日历",
 }
+SECTION_LABELS_EN = {
+    "fish": "Fish",
+    "bugs": "Bugs",
+    "sea": "Sea Creatures",
+    "villagers": "Villagers",
+    "art": "Art",
+    "recipes": "DIY Recipes",
+    "fossils": "Fossils",
+    "events": "Events",
+}
+PAGE_META_BY_LANG = {
+    "zh": {
+        "items": ("物品资料库", "浏览、搜索并查看动森物品资料"),
+        "encyclopedia": ("离线百科", "按分类浏览百科与图鉴内容"),
+        "patterns": ("设计图中心", "浏览、下载并整理设计图案资源"),
+        "tools": ("存档工具", "集成 NHSE 与设计图编辑器的存档修改入口"),
+    },
+    "en": {
+        "items": ("Item Library", "Browse, search, and inspect ACNH item data"),
+        "encyclopedia": ("Offline Encyclopedia", "Browse encyclopedia and catalog content by section"),
+        "patterns": ("Pattern Center", "Browse, export, and organize design resources"),
+        "tools": ("Save Tools", "Launch NHSE and the pattern editor from one place"),
+    },
+}
+STATIC_TEXT_PAIRS = {
+    "离线助手": "Offline Assistant",
+    "本地数据库": "Local Database",
+    "物品库": "Items",
+    "离线百科": "Encyclopedia",
+    "设计图": "Patterns",
+    "存档工具": "Save Tools",
+    "物品对照": "Items",
+    "物品资料库": "Item Library",
+    "搜索与分类": "Search & Filters",
+    "关键词": "Keyword",
+    "分类": "Category",
+    "类型": "Type",
+    "清空筛选": "Clear Filters",
+    "中文简体": "Simplified Chinese",
+    "复制英文": "Copy English",
+    "复制中文": "Copy Chinese",
+    "百科来源": "Entry Source",
+    "Wiki 摘要": "Wiki Summary",
+    "离线资料详情": "Offline Details",
+    "离线百科搜索": "Offline Encyclopedia",
+    "资料分类": "Section",
+    "名称": "Name",
+    "中文对照": "Chinese",
+    "概要": "Summary",
+    "复制名称": "Copy Name",
+    "设计图中心": "Pattern Center",
+    "仅显示已保存": "Saved Only",
+    "刷新索引": "Refresh Index",
+    "另存默认格式": "Export Default",
+    "导入本地图案": "Import Local Pattern",
+    "打开离线站点": "Open Offline Site",
+    "查看大图": "Open Preview",
+    "图案说明": "Pattern Details",
+    "上一页": "Previous",
+    "下一页": "Next",
+    "暂无图标": "No Icon",
+    "暂无预览": "No Preview",
+    "存档修改与本地镜像": "Save Editing & Local Mirror",
+    "这里提供 NHSE、ACNHDesignPatternEditor 和本地设计图镜像的统一入口。": "This page provides a unified entry for NHSE, ACNHDesignPatternEditor, and the local pattern mirror.",
+    "NHSE 存档编辑器": "NHSE Save Editor",
+    "用于加载和修改 ACNH 存档。": "Load and edit ACNH save files.",
+    "下载或更新 NHSE": "Install or Update NHSE",
+    "启动 NHSE": "Launch NHSE",
+    "设计图编辑器": "Pattern Editor",
+    "用于直接编辑设计图存档槽位、导入导出图案项目。": "Edit pattern save slots and import or export pattern projects.",
+    "下载或更新设计图编辑器": "Install or Update Pattern Editor",
+    "启动设计图编辑器": "Launch Pattern Editor",
+    "本地设计图镜像": "Local Pattern Mirror",
+    "把 Pattern Dump Index 整个同步到本地后，设计图页面会优先使用本地数据实现离线大图浏览与下载。": "Sync the full Pattern Dump Index locally so the Patterns page can browse and export from local files first.",
+    "同步本地镜像": "Sync Local Mirror",
+    "打开镜像目录": "Open Mirror Folder",
+    "语言": "Language",
+}
+STATIC_TEXT_REVERSE = {value: key for key, value in STATIC_TEXT_PAIRS.items()}
 
 
 @dataclass(slots=True)
@@ -194,6 +293,10 @@ def pattern_has_nhd(entry: PatternEntry) -> bool:
 
 def pattern_has_qr(entry: PatternEntry) -> bool:
     return bool(entry.qr_rel_path or entry.qr_url)
+
+
+def pattern_has_preview_image(entry: PatternEntry) -> bool:
+    return bool(entry.preview_rel_path or entry.preview_url)
 
 
 def open_connection(db_path: Path) -> sqlite3.Connection:
@@ -359,8 +462,9 @@ class KnowledgeBase:
             return path
         return None
 
-    def section_choices(self) -> list[tuple[str, str]]:
-        return [(section_id, SECTION_LABELS[section_id]) for section_id in SECTION_LABELS if self.encyclopedia.get(section_id)]
+    def section_choices(self, language: str = "zh") -> list[tuple[str, str]]:
+        labels = SECTION_LABELS if language == "zh" else SECTION_LABELS_EN
+        return [(section_id, labels[section_id]) for section_id in labels if self.encyclopedia.get(section_id)]
 
     def summary_stats(self) -> str:
         items_rows = self.meta.get("items_rows", "0")
@@ -398,6 +502,7 @@ class OfflineAssistantApp:
         self.page_title_var = tk.StringVar(value="物品资料库")
         self.page_subtitle_var = tk.StringVar(value="浏览、搜索并查看动森物品资料")
         self.page_status_var = tk.StringVar(value="等待加载")
+        self.ui_language_var = tk.StringVar(value="中文")
         self.stat_titles = [tk.StringVar(value=""), tk.StringVar(value=""), tk.StringVar(value="")]
         self.stat_values = [tk.StringVar(value="-"), tk.StringVar(value="-"), tk.StringVar(value="-")]
 
@@ -602,14 +707,87 @@ class OfflineAssistantApp:
         )
         style.map("App.Treeview.Heading", background=[("active", card)])
 
+    def current_language_code(self) -> str:
+        return "en" if self.ui_language_var.get() == "English" else "zh"
+
+    def translate_static_text(self, text: str) -> str:
+        if self.current_language_code() == "en":
+            return STATIC_TEXT_PAIRS.get(text, text)
+        return STATIC_TEXT_REVERSE.get(text, text)
+
+    def translate_widget_tree(self, widget: tk.Misc) -> None:
+        try:
+            current_text = widget.cget("text")
+        except Exception:
+            current_text = None
+        if isinstance(current_text, str):
+            if self.current_language_code() == "en":
+                if current_text in STATIC_TEXT_PAIRS:
+                    try:
+                        setattr(widget, "_zh_text", current_text)
+                    except Exception:
+                        pass
+                    translated = STATIC_TEXT_PAIRS[current_text]
+                else:
+                    translated = current_text
+            else:
+                translated = getattr(widget, "_zh_text", None) or STATIC_TEXT_REVERSE.get(current_text, current_text)
+            if translated != current_text:
+                try:
+                    widget.configure(text=translated)
+                except Exception:
+                    pass
+
+        for child in widget.winfo_children():
+            self.translate_widget_tree(child)
+
+    def apply_tree_headings_language(self) -> None:
+        language = self.current_language_code()
+        for column_id, _, width, anchor in DISPLAY_COLUMNS:
+            self.tree.heading(column_id, text=DISPLAY_COLUMN_TITLES[language][column_id], command=lambda c=column_id: self.on_heading_click(c))
+            self.tree.column(column_id, width=width, minwidth=80, anchor=anchor, stretch=True)
+
+        self.encyclopedia_tree.heading("title", text=self.translate_static_text("名称"))
+        self.encyclopedia_tree.heading("chinese", text=self.translate_static_text("中文对照"))
+        self.encyclopedia_tree.heading("subtitle", text=self.translate_static_text("概要"))
+
+    def refresh_language_sensitive_choices(self) -> None:
+        if self.knowledge_base is None:
+            return
+        current_section_id = self.current_section_id() if self.encyclopedia_section_choices else ""
+        self.encyclopedia_section_choices = self.knowledge_base.section_choices(self.current_language_code())
+        self.encyclopedia_combo["values"] = [label for _, label in self.encyclopedia_section_choices]
+        if current_section_id:
+            for section_id, label in self.encyclopedia_section_choices:
+                if section_id == current_section_id:
+                    self.encyclopedia_section_var.set(label)
+                    break
+        elif self.encyclopedia_combo["values"]:
+            self.encyclopedia_section_var.set(self.encyclopedia_combo["values"][0])
+
+    def apply_language(self, force: bool = False) -> None:
+        self.page_meta = PAGE_META_BY_LANG[self.current_language_code()]
+        self.root.title(APP_TITLE_EN if self.current_language_code() == "en" else APP_TITLE_ZH)
+        self.translate_widget_tree(self.root)
+        self.notebook.tab(self.items_tab, text=self.translate_static_text("物品对照"))
+        self.notebook.tab(self.encyclopedia_tab, text=self.translate_static_text("离线百科"))
+        self.notebook.tab(self.patterns_tab, text=self.translate_static_text("设计图"))
+        self.notebook.tab(self.tools_tab, text=self.translate_static_text("存档工具"))
+        self.apply_tree_headings_language()
+        self.refresh_language_sensitive_choices()
+        self.show_page(self.current_page_key)
+        if force:
+            return
+        self.refresh_current_item_detail()
+        if self.encyclopedia_visible_entries:
+            self.update_encyclopedia_detail(self.encyclopedia_visible_entries[0])
+        else:
+            self.clear_encyclopedia_detail()
+        self.render_pattern_gallery()
+
     def build_ui(self) -> None:
         self.current_page_key = "items"
-        self.page_meta = {
-            "items": ("物品资料库", "浏览、搜索并查看动森物品资料"),
-            "encyclopedia": ("离线百科", "按分类浏览百科与图鉴内容"),
-            "patterns": ("设计图中心", "浏览、下载并整理设计图案资源"),
-            "tools": ("存档工具", "集成 NHSE 与设计图编辑器的存档修改入口"),
-        }
+        self.page_meta = PAGE_META_BY_LANG[self.current_language_code()]
         self.sidebar_buttons: dict[str, tk.Button] = {}
         self.page_tabs: dict[str, ttk.Frame] = {}
 
@@ -679,11 +857,18 @@ class OfflineAssistantApp:
         header = tk.Frame(content, bg="#30264b")
         header.grid(row=0, column=0, sticky="ew", padx=20, pady=(18, 10))
         header.columnconfigure(0, weight=1)
+        header.columnconfigure(1, weight=0)
 
         title_block = tk.Frame(header, bg="#30264b")
         title_block.grid(row=0, column=0, sticky="w")
         tk.Label(title_block, textvariable=self.page_title_var, fg="#f8f2ff", bg="#30264b", font=("Microsoft YaHei UI", 24, "bold")).grid(row=0, column=0, sticky="w")
         tk.Label(title_block, textvariable=self.page_subtitle_var, fg="#bcaee4", bg="#30264b", font=("Microsoft YaHei UI", 10)).grid(row=1, column=0, sticky="w", pady=(4, 0))
+
+        top_actions = tk.Frame(header, bg="#30264b")
+        top_actions.grid(row=0, column=1, sticky="e")
+        tk.Label(top_actions, text="语言", fg="#d7caef", bg="#30264b", font=("Microsoft YaHei UI", 10)).grid(row=0, column=0, padx=(0, 8))
+        self.language_combo = ttk.Combobox(top_actions, textvariable=self.ui_language_var, state="readonly", values=("中文", "English"), width=10)
+        self.language_combo.grid(row=0, column=1)
 
         info_strip = tk.Frame(content, bg="#30264b")
         info_strip.grid(row=1, column=0, sticky="ew", padx=20, pady=(0, 10))
@@ -725,6 +910,7 @@ class OfflineAssistantApp:
         self.build_patterns_tab()
         self.build_tools_tab()
         self.show_page("items")
+        self.apply_language(force=True)
 
         status_bar = tk.Label(outer, textvariable=self.status_var, fg="#d7caef", bg="#1a1428", anchor="w", padx=14, pady=8, font=("Microsoft YaHei UI", 9))
         status_bar.grid(row=1, column=0, sticky="ew", padx=22, pady=(0, 18))
@@ -738,33 +924,34 @@ class OfflineAssistantApp:
         button.configure(bg="#342852" if is_hover else "#211833")
 
     def update_dashboard_stats(self) -> None:
+        en = self.current_language_code() == "en"
         if self.current_page_key == "items" and self.data is not None:
-            self.stat_titles[0].set("物品总数")
+            self.stat_titles[0].set("Total Items" if en else "物品总数")
             self.stat_values[0].set(str(len(self.data.records)))
-            self.stat_titles[1].set("当前显示")
+            self.stat_titles[1].set("Visible" if en else "当前显示")
             self.stat_values[1].set(str(len(self.visible_records)))
-            self.stat_titles[2].set("分类数量")
+            self.stat_titles[2].set("Categories" if en else "分类数量")
             self.stat_values[2].set(str(len(self.data.category_counts)))
         elif self.current_page_key == "encyclopedia" and self.knowledge_base is not None:
             total_entries = sum(len(v) for v in self.knowledge_base.encyclopedia.values())
             chinese_entries = sum(1 for entries in self.knowledge_base.encyclopedia.values() for entry in entries if self.resolve_encyclopedia_chinese_title(entry))
-            self.stat_titles[0].set("百科条目")
+            self.stat_titles[0].set("Entries" if en else "百科条目")
             self.stat_values[0].set(str(total_entries))
-            self.stat_titles[1].set("已带中文")
+            self.stat_titles[1].set("With Chinese" if en else "已带中文")
             self.stat_values[1].set(str(chinese_entries))
-            self.stat_titles[2].set("当前列表")
+            self.stat_titles[2].set("Visible" if en else "当前列表")
             self.stat_values[2].set(str(len(self.encyclopedia_visible_entries)))
         elif self.current_page_key == "patterns" and self.pattern_repository is not None:
             total_patterns = len(self.pattern_visible_entries)
             saved_patterns = sum(1 for entry in self.pattern_visible_entries if entry.is_saved)
-            self.stat_titles[0].set("设计图索引")
+            self.stat_titles[0].set("Indexed" if en else "设计图索引")
             self.stat_values[0].set(str(total_patterns))
-            self.stat_titles[1].set("已保存")
+            self.stat_titles[1].set("Saved" if en else "已保存")
             self.stat_values[1].set(str(saved_patterns))
-            self.stat_titles[2].set("资源状态")
-            self.stat_values[2].set("在线")
+            self.stat_titles[2].set("Status" if en else "资源状态")
+            self.stat_values[2].set("Ready" if en else "在线")
         else:
-            for index, title in enumerate(["状态一", "状态二", "状态三"]):
+            for index, title in enumerate((["Status A", "Status B", "Status C"] if en else ["状态一", "状态二", "状态三"])):
                 self.stat_titles[index].set(title)
                 self.stat_values[index].set("-")
 
@@ -778,13 +965,13 @@ class OfflineAssistantApp:
         self.page_subtitle_var.set(subtitle)
 
         if page_key == "items" and self.data is not None:
-            badge = f"物品 {len(self.visible_records) if self.visible_records else len(self.data.records)} / {len(self.data.records)}"
+            badge = f"Items {len(self.visible_records) if self.visible_records else len(self.data.records)} / {len(self.data.records)}" if self.current_language_code() == "en" else f"物品 {len(self.visible_records) if self.visible_records else len(self.data.records)} / {len(self.data.records)}"
         elif page_key == "encyclopedia" and self.knowledge_base is not None:
-            badge = f"百科 {len(self.encyclopedia_visible_entries)} 条"
+            badge = f"Entries {len(self.encyclopedia_visible_entries)}" if self.current_language_code() == "en" else f"百科 {len(self.encyclopedia_visible_entries)} 条"
         elif page_key == "patterns" and self.pattern_repository is not None:
-            badge = f"设计图 {len(self.pattern_visible_entries)} 条"
+            badge = f"Patterns {len(self.pattern_visible_entries)}" if self.current_language_code() == "en" else f"设计图 {len(self.pattern_visible_entries)} 条"
         else:
-            badge = "等待加载"
+            badge = "Waiting" if self.current_language_code() == "en" else "等待加载"
         self.page_status_var.set(badge)
         if page_key == "patterns":
             self.root.after(80, self.apply_default_pattern_layout)
@@ -850,7 +1037,7 @@ class OfflineAssistantApp:
         image_frame = ttk.Frame(parent)
         image_frame.grid(row=0, column=0, sticky="ew")
         image_frame.columnconfigure(1, weight=1)
-        self.item_image_label = ttk.Label(image_frame, text="暂无图标", anchor="center", relief="solid", width=22)
+        self.item_image_label = ttk.Label(image_frame, text=self.translate_static_text("暂无图标"), anchor="center", relief="solid", width=22)
         self.item_image_label.grid(row=0, column=0, rowspan=4, sticky="nw", padx=(0, 12))
 
         ttk.Label(image_frame, text="English", style="Header.TLabel").grid(row=0, column=1, sticky="w")
@@ -935,7 +1122,7 @@ class OfflineAssistantApp:
         self.encyclopedia_tree.grid(row=0, column=0, sticky="nsew")
         e_vscroll.grid(row=0, column=1, sticky="ns")
 
-        self.encyclopedia_image_label = ttk.Label(right_frame, text="暂无图标", anchor="center", relief="solid", width=22)
+        self.encyclopedia_image_label = ttk.Label(right_frame, text=self.translate_static_text("暂无图标"), anchor="center", relief="solid", width=22)
         self.encyclopedia_image_label.grid(row=0, column=0, sticky="nw")
         title_row = ttk.Frame(right_frame)
         title_row.grid(row=1, column=0, sticky="ew", pady=(10, 0))
@@ -1025,7 +1212,7 @@ class OfflineAssistantApp:
         self.bind_pattern_scroll(self.pattern_grid_frame)
 
         pattern_wraplength = 300
-        self.pattern_preview_label = ttk.Label(right_frame, text="暂无预览", anchor="center", relief="solid", width=22)
+        self.pattern_preview_label = ttk.Label(right_frame, text=self.translate_static_text("暂无预览"), anchor="center", relief="solid", width=22)
         self.pattern_preview_label.grid(row=0, column=0, sticky="nw")
         ttk.Label(right_frame, textvariable=self.pattern_title_var, style="LargeValue.TLabel", wraplength=pattern_wraplength, justify="left").grid(row=1, column=0, sticky="w", pady=(10, 0))
         ttk.Label(right_frame, textvariable=self.pattern_creator_var, style="Value.TLabel", wraplength=pattern_wraplength, justify="left").grid(row=2, column=0, sticky="w", pady=(4, 0))
@@ -1151,6 +1338,7 @@ class OfflineAssistantApp:
         self.encyclopedia_tree.bind("<<TreeviewSelect>>", self.on_encyclopedia_selection)
         self.pattern_search_var.trace_add("write", lambda *_: self.refresh_pattern_view())
         self.pattern_category_combo.bind("<<ComboboxSelected>>", lambda *_: self.refresh_pattern_view())
+        self.language_combo.bind("<<ComboboxSelected>>", lambda *_: self.apply_language())
         self.root.bind("<Control-f>", self.focus_search)
         self.root.bind("<F5>", lambda *_: self.reload_database())
 
@@ -1203,7 +1391,7 @@ class OfflineAssistantApp:
         if self.kind_var.get() not in self.kind_combo["values"]:
             self.kind_var.set(ALL_KINDS)
 
-        self.encyclopedia_section_choices = knowledge_base.section_choices()
+        self.encyclopedia_section_choices = knowledge_base.section_choices(self.current_language_code())
         self.encyclopedia_combo["values"] = [label for _, label in self.encyclopedia_section_choices]
         if self.encyclopedia_combo["values"]:
             if self.encyclopedia_section_var.get() not in self.encyclopedia_combo["values"]:
@@ -1251,9 +1439,17 @@ class OfflineAssistantApp:
         )
         self.visible_records = sort_records(filtered, self.sort_column, self.sort_descending)
         self.render_tree()
-        self.status_var.set(f"已加载 {len(self.data.records)} 条物品 | 当前显示 {len(self.visible_records)} 条")
+        self.status_var.set(
+            f"Loaded {len(self.data.records)} items | Showing {len(self.visible_records)}"
+            if self.current_language_code() == "en"
+            else f"已加载 {len(self.data.records)} 条物品 | 当前显示 {len(self.visible_records)} 条"
+        )
         if self.current_page_key == "items":
-            self.page_status_var.set(f"物品 {len(self.visible_records)} / {len(self.data.records)}")
+            self.page_status_var.set(
+                f"Items {len(self.visible_records)} / {len(self.data.records)}"
+                if self.current_language_code() == "en"
+                else f"物品 {len(self.visible_records)} / {len(self.data.records)}"
+            )
 
     def render_tree(self) -> None:
         self.tree.delete(*self.tree.get_children())
@@ -1282,12 +1478,13 @@ class OfflineAssistantApp:
         self.detail_kind_var.set("-")
         self.detail_source_var.set("-")
         self.item_image_ref = None
-        self.item_image_label.configure(image="", text="暂无图标")
+        self.item_image_label.configure(image="", text=self.translate_static_text("暂无图标"))
         set_text_widget(self.item_summary_text, "")
         set_text_widget(self.item_facts_text, "")
 
     def update_detail_panel(self, record: ItemRecord) -> None:
-        self.detail_id_var.set(f"{record.item_id} / 类型编码 {record.item_kind_code or '-'}")
+        en = self.current_language_code() == "en"
+        self.detail_id_var.set(f"{record.item_id} / {'Kind Code' if en else '类型编码'} {record.item_kind_code or '-'}")
         self.detail_english_var.set(record.english or "(空)")
         self.detail_chinese_var.set(record.chinese_simplified or "(空)")
         self.detail_category_var.set(record.category_zh or "(空)")
@@ -1296,14 +1493,14 @@ class OfflineAssistantApp:
         wiki_entry = self.knowledge_base.resolve_item(record.english) if self.knowledge_base else None
         if wiki_entry is not None:
             chinese_title = clean_text(wiki_entry.get("chinese_title")) or self.knowledge_base.resolve_chinese_title(record.english, self.translation_map)
-            source = wiki_entry.get("dataset_label", "离线资料")
+            source = wiki_entry.get("dataset_label", "Offline Data" if en else "离线资料")
             if chinese_title:
-                source = f"{source} | 百科中文：{chinese_title}"
+                source = f"{source} | {'Chinese' if en else '百科中文'}: {chinese_title}"
             self.detail_source_var.set(source)
 
             facts = clean_text(wiki_entry.get("facts_text"))
             if wiki_entry.get("wiki_url"):
-                facts = facts + ("\n\n" if facts else "") + f"来源页面：{wiki_entry['wiki_url']}"
+                facts = facts + ("\n\n" if facts else "") + f"{'Source Page' if en else '来源页面'}: {wiki_entry['wiki_url']}"
             set_text_widget(self.item_summary_text, clean_text(wiki_entry.get("summary")))
             set_text_widget(self.item_facts_text, facts)
 
@@ -1317,9 +1514,9 @@ class OfflineAssistantApp:
                 if fallback_image is not None:
                     self.item_image_label.configure(image=fallback_image, text="")
                 else:
-                    self.item_image_label.configure(image="", text="暂无图标")
+                    self.item_image_label.configure(image="", text=self.translate_static_text("暂无图标"))
         else:
-            self.detail_source_var.set("数据库中没有该条目的百科扩展信息，显示数据库基础图标")
+            self.detail_source_var.set("No encyclopedia extension was found for this item; showing the database icon." if en else "数据库中没有该条目的百科扩展信息，显示数据库基础图标")
             set_text_widget(self.item_summary_text, "")
             set_text_widget(self.item_facts_text, "")
             fallback_image = load_photo_image(self.knowledge_base.image_path(record.image_rel_path)) if self.knowledge_base else None
@@ -1327,7 +1524,7 @@ class OfflineAssistantApp:
             if fallback_image is not None:
                 self.item_image_label.configure(image=fallback_image, text="")
             else:
-                self.item_image_label.configure(image="", text="暂无图标")
+                self.item_image_label.configure(image="", text=self.translate_static_text("暂无图标"))
 
     def refresh_current_item_detail(self) -> None:
         selection = self.tree.selection()
@@ -1410,24 +1607,29 @@ class OfflineAssistantApp:
         else:
             self.clear_encyclopedia_detail()
         if self.current_page_key == "encyclopedia":
-            self.page_status_var.set(f"百科 {len(self.encyclopedia_visible_entries)} 条")
+            self.page_status_var.set(
+                f"Entries {len(self.encyclopedia_visible_entries)}"
+                if self.current_language_code() == "en"
+                else f"百科 {len(self.encyclopedia_visible_entries)} 条"
+            )
 
     def clear_encyclopedia_detail(self) -> None:
         self.encyclopedia_title_var.set("-")
         self.encyclopedia_chinese_var.set("-")
         self.encyclopedia_subtitle_var.set("-")
         self.encyclopedia_image_ref = None
-        self.encyclopedia_image_label.configure(image="", text="暂无图标")
+        self.encyclopedia_image_label.configure(image="", text=self.translate_static_text("暂无图标"))
         set_text_widget(self.encyclopedia_summary_text, "")
         set_text_widget(self.encyclopedia_facts_text, "")
 
     def update_encyclopedia_detail(self, entry: dict[str, str]) -> None:
+        en = self.current_language_code() == "en"
         self.encyclopedia_title_var.set(entry.get("title", "-"))
-        self.encyclopedia_chinese_var.set(entry.get("resolved_chinese_title", "") or "暂无中文对照")
+        self.encyclopedia_chinese_var.set(entry.get("resolved_chinese_title", "") or ("No Chinese translation" if en else "暂无中文对照"))
         self.encyclopedia_subtitle_var.set(entry.get("subtitle", "-"))
         facts = clean_text(entry.get("facts_text"))
         if entry.get("wiki_url"):
-            facts = facts + ("\n\n" if facts else "") + f"来源页面：{entry['wiki_url']}"
+            facts = facts + ("\n\n" if facts else "") + f"{'Source Page' if en else '来源页面'}: {entry['wiki_url']}"
         set_text_widget(self.encyclopedia_summary_text, clean_text(entry.get("summary")))
         set_text_widget(self.encyclopedia_facts_text, facts)
 
@@ -1436,7 +1638,7 @@ class OfflineAssistantApp:
         if image is not None:
             self.encyclopedia_image_label.configure(image=image, text="")
         else:
-            self.encyclopedia_image_label.configure(image="", text="暂无图标")
+            self.encyclopedia_image_label.configure(image="", text=self.translate_static_text("暂无图标"))
 
     def on_encyclopedia_selection(self, _event=None) -> None:
         selection = self.encyclopedia_tree.selection()
@@ -1455,16 +1657,16 @@ class OfflineAssistantApp:
         self.status_var.set(success_message)
 
     def copy_english(self) -> None:
-        self.copy_to_clipboard(self.detail_english_var.get(), "已复制英文名称")
+        self.copy_to_clipboard(self.detail_english_var.get(), "Copied English name" if self.current_language_code() == "en" else "已复制英文名称")
 
     def copy_chinese(self) -> None:
-        self.copy_to_clipboard(self.detail_chinese_var.get(), "已复制中文名称")
+        self.copy_to_clipboard(self.detail_chinese_var.get(), "Copied Chinese name" if self.current_language_code() == "en" else "已复制中文名称")
 
     def copy_encyclopedia_title(self) -> None:
-        self.copy_to_clipboard(self.encyclopedia_title_var.get(), "已复制百科名称")
+        self.copy_to_clipboard(self.encyclopedia_title_var.get(), "Copied entry title" if self.current_language_code() == "en" else "已复制百科名称")
 
     def copy_encyclopedia_chinese(self) -> None:
-        self.copy_to_clipboard(self.encyclopedia_chinese_var.get(), "已复制百科中文对照")
+        self.copy_to_clipboard(self.encyclopedia_chinese_var.get(), "Copied Chinese title" if self.current_language_code() == "en" else "已复制百科中文对照")
 
     def refresh_pattern_view(self) -> None:
         if self.pattern_repository is None:
@@ -1486,7 +1688,11 @@ class OfflineAssistantApp:
         self.pattern_page_index = min(self.pattern_page_index, max_page - 1)
         self.render_pattern_gallery()
         if self.current_page_key == "patterns":
-            self.page_status_var.set(f"设计图 {len(self.pattern_filtered_entries)} 条")
+            self.page_status_var.set(
+                f"Patterns {len(self.pattern_filtered_entries)}"
+                if self.current_language_code() == "en"
+                else f"设计图 {len(self.pattern_filtered_entries)} 条"
+            )
             self.update_dashboard_stats()
 
     def change_pattern_page(self, offset: int) -> None:
@@ -1527,6 +1733,7 @@ class OfflineAssistantApp:
 
             preview_entry = self.pattern_repository.ensure_preview_cached(entry.id) if self.pattern_repository else entry
             preview_path = self.pattern_repository.image_path(preview_entry.preview_rel_path) if self.pattern_repository else None
+            qr_path = self.pattern_repository.image_path(preview_entry.qr_rel_path) if self.pattern_repository else None
             image = load_photo_image(
                 preview_path,
                 max_size=192,
@@ -1535,10 +1742,12 @@ class OfflineAssistantApp:
             self.pattern_card_images.append(image)
             has_acnl = pattern_has_acnl(entry)
             has_nhd = pattern_has_nhd(entry)
-            has_qr = pattern_has_qr(entry)
+            has_qr = qr_path is not None or bool(preview_entry.qr_url)
+            has_preview_png = preview_path is not None or pattern_has_preview_image(preview_entry)
             left_button_is_qr = collection == "pro"
+            left_button_is_png = left_button_is_qr and not has_qr and has_preview_png
 
-            preview_label = tk.Label(card, image=image, text="暂无预览" if image is None else "", compound="top", bg="#2f2448", fg="#f5ecff", cursor="hand2")
+            preview_label = tk.Label(card, image=image, text=self.translate_static_text("暂无预览") if image is None else "", compound="top", bg="#2f2448", fg="#f5ecff", cursor="hand2")
             preview_label.grid(row=0, column=0, padx=10, pady=(10, 6))
             title_label = tk.Label(card, text=entry.title or "未命名", wraplength=150, justify="center", bg="#2f2448", fg="#f5ecff", font=("Microsoft YaHei UI", 10, "bold"))
             title_label.grid(row=1, column=0, padx=10, pady=(0, 6), sticky="ew")
@@ -1550,18 +1759,18 @@ class OfflineAssistantApp:
 
             primary_button = tk.Button(
                 format_row,
-                text="QR" if left_button_is_qr else "ACNL",
+                text="QR" if left_button_is_qr and has_qr else ("PNG" if left_button_is_png else "ACNL"),
                 relief="flat",
                 bd=0,
-                bg="#f59e0b" if (left_button_is_qr and has_qr) else ("#22c55e" if has_acnl else "#4b5563"),
+                bg="#f59e0b" if (left_button_is_qr and has_qr) else ("#f97316" if left_button_is_png else ("#22c55e" if has_acnl else "#4b5563")),
                 fg="#ffffff",
-                activebackground="#d97706" if left_button_is_qr else "#16a34a",
+                activebackground="#d97706" if (left_button_is_qr and has_qr) else ("#ea580c" if left_button_is_png else "#16a34a"),
                 activeforeground="#ffffff",
                 font=("Microsoft YaHei UI", 8, "bold"),
                 padx=6,
                 pady=3,
-                cursor="hand2" if (has_qr if left_button_is_qr else has_acnl) else "arrow",
-                command=(lambda selected_entry=entry: self.export_pattern_qr_async(selected_entry)) if left_button_is_qr and has_qr else ((lambda selected_entry=entry: self.download_pattern_acnl_async(selected_entry)) if has_acnl else None),
+                cursor="hand2" if ((has_qr or has_preview_png) if left_button_is_qr else has_acnl) else "arrow",
+                command=(lambda selected_entry=entry: self.export_pattern_qr_async(selected_entry)) if left_button_is_qr and (has_qr or has_preview_png) else ((lambda selected_entry=entry: self.download_pattern_acnl_async(selected_entry)) if has_acnl else None),
             )
             primary_button.grid(row=0, column=0, sticky="ew", padx=(0, 4))
 
@@ -1604,37 +1813,41 @@ class OfflineAssistantApp:
         self.pattern_tags_var.set("-")
         self.pattern_saved_var.set("-")
         self.pattern_preview_ref = None
-        self.pattern_preview_label.configure(image="", text="暂无预览")
+        self.pattern_preview_label.configure(image="", text=self.translate_static_text("暂无预览"))
         set_text_widget(self.pattern_details_text, "")
 
     def update_pattern_detail(self, entry: PatternEntry) -> None:
+        en = self.current_language_code() == "en"
         self.pattern_title_var.set(entry.title or "-")
-        self.pattern_creator_var.set(f"作者：{entry.creator or 'Unknown'}")
-        self.pattern_type_var.set(f"类型：{entry.pattern_type or '-'}")
-        self.pattern_tags_var.set(f"标签：{entry.tags or '-'}")
-        self.pattern_saved_var.set(f"已保存：{'是' if entry.is_saved else '否'}")
-
-        details = []
-        if entry.acnl_rel_path or entry.acnl_url:
-            details.append("可下载 ACNL 文件")
-        if entry.nhd_rel_path or entry.nhd_url:
-            details.append("可下载 NHD/NHPD 文件")
-        if entry.qr_rel_path or entry.qr_url:
-            details.append("可导出 QR 图")
-        if entry.source_type:
-            details.append(f"来源类型：{entry.source_type}")
-        if entry.source_url:
-            details.append(f"来源：{entry.source_url}")
-        set_text_widget(self.pattern_details_text, "\n".join(details))
+        self.pattern_creator_var.set(f"{'Author' if en else '作者'}: {entry.creator or 'Unknown'}")
+        self.pattern_type_var.set(f"{'Type' if en else '类型'}: {entry.pattern_type or '-'}")
+        self.pattern_tags_var.set(f"{'Tags' if en else '标签'}: {entry.tags or '-'}")
+        self.pattern_saved_var.set(f"{'Saved' if en else '已保存'}: {('Yes' if entry.is_saved else 'No') if en else ('是' if entry.is_saved else '否')}")
 
         preview_entry = self.pattern_repository.ensure_preview_cached(entry.id) if self.pattern_repository else entry
         preview_path = self.pattern_repository.image_path(preview_entry.preview_rel_path) if self.pattern_repository else None
+        qr_path = self.pattern_repository.image_path(preview_entry.qr_rel_path) if self.pattern_repository else None
+        details = []
+        if entry.acnl_rel_path or entry.acnl_url:
+            details.append("ACNL export available" if en else "可下载 ACNL 文件")
+        if entry.nhd_rel_path or entry.nhd_url:
+            details.append("NHD/NHPD export available" if en else "可下载 NHD/NHPD 文件")
+        if qr_path is not None or entry.qr_url:
+            details.append("QR image export available" if en else "可导出 QR 图")
+        elif preview_path is not None or entry.preview_url:
+            details.append("PNG preview export available" if en else "可导出 PNG 预览图")
+        if entry.source_type:
+            details.append(f"{'Source Type' if en else '来源类型'}: {entry.source_type}")
+        if entry.source_url:
+            details.append(f"{'Source' if en else '来源'}: {entry.source_url}")
+        set_text_widget(self.pattern_details_text, "\n".join(details))
+
         image = load_photo_image(preview_path, max_size=320)
         self.pattern_preview_ref = image
         if image is not None:
             self.pattern_preview_label.configure(image=image, text="")
         else:
-            self.pattern_preview_label.configure(image="", text="暂无预览")
+            self.pattern_preview_label.configure(image="", text=self.translate_static_text("暂无预览"))
 
     def select_pattern_entry(self, entry: PatternEntry) -> None:
         self.selected_pattern_entry = entry
@@ -1675,7 +1888,7 @@ class OfflineAssistantApp:
             if not self.pattern_visible_entries:
                 return
             selected_entry = self.pattern_visible_entries[0]
-        self.status_var.set(f"正在准备导出 QR：{selected_entry.title}")
+        self.status_var.set(f"正在准备导出图片：{selected_entry.title}")
         self._run_pattern_task("export-pattern-default", lambda: self.pattern_repository.prepare_qr_file(selected_entry.id))
 
     def open_selected_pattern_preview_for_entry(self, entry: PatternEntry) -> None:
@@ -1695,10 +1908,13 @@ class OfflineAssistantApp:
 
     def save_exported_pattern_file(self, entry: PatternEntry, source_path: Path, suffix: str) -> None:
         if suffix == ".png":
-            default_name = f"{entry.title or 'pattern'}_QR{suffix}"
-            dialog_title = "另存 QR 图片"
+            if source_path.name.lower().endswith(".qr.png"):
+                default_name = f"{entry.title or 'pattern'}_QR{suffix}"
+            else:
+                default_name = f"{entry.title or 'pattern'}{suffix}"
+            dialog_title = "另存图片"
             filetypes = (
-                ("QR 图片", "*.png"),
+                ("PNG 图片", "*.png"),
                 ("所有文件", "*.*"),
             )
         else:
