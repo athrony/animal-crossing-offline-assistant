@@ -548,6 +548,14 @@ class PatternRepository:
         suffix = Path(source_path).suffix.lower() or ".nhd"
         return entry, source_path, suffix
 
+    def prepare_qr_file(self, entry_id: int) -> tuple[PatternEntry, Path, str]:
+        entry = self.ensure_preview_cached(entry_id)
+        if entry.qr_rel_path:
+            source_path = self.data_dir / entry.qr_rel_path
+            if source_path.exists():
+                return entry, source_path, ".png"
+        raise ValueError("This pattern does not provide a QR image.")
+
     def import_pattern_files(self, file_paths: Iterable[Path]) -> int:
         inserted = 0
         with self._connect() as connection:

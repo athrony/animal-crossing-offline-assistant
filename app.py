@@ -192,6 +192,10 @@ def pattern_has_nhd(entry: PatternEntry) -> bool:
     return bool(entry.nhd_rel_path or entry.nhd_url)
 
 
+def pattern_has_qr(entry: PatternEntry) -> bool:
+    return bool(entry.qr_rel_path or entry.qr_url)
+
+
 def open_connection(db_path: Path) -> sqlite3.Connection:
     connection = sqlite3.connect(db_path)
     connection.row_factory = sqlite3.Row
@@ -1516,6 +1520,7 @@ class OfflineAssistantApp:
         for index, entry in enumerate(self.pattern_visible_entries):
             row = index // columns
             column = index % columns
+            collection = get_pattern_collection(entry)
             card = tk.Frame(self.pattern_grid_frame, bg="#2f2448", highlightthickness=1, highlightbackground="#4b3a72", cursor="hand2")
             card.grid(row=row, column=column, sticky="nsew", padx=8, pady=8)
             card.columnconfigure(0, weight=1)
@@ -1530,6 +1535,8 @@ class OfflineAssistantApp:
             self.pattern_card_images.append(image)
             has_acnl = pattern_has_acnl(entry)
             has_nhd = pattern_has_nhd(entry)
+            has_qr = pattern_has_qr(entry)
+            left_button_is_qr = collection == "pro"
 
             preview_label = tk.Label(card, image=image, text="暂无预览" if image is None else "", compound="top", bg="#2f2448", fg="#f5ecff", cursor="hand2")
             preview_label.grid(row=0, column=0, padx=10, pady=(10, 6))
@@ -1541,22 +1548,22 @@ class OfflineAssistantApp:
             format_row.columnconfigure(0, weight=1)
             format_row.columnconfigure(1, weight=1)
 
-            acnl_button = tk.Button(
+            primary_button = tk.Button(
                 format_row,
-                text="ACNL",
+                text="QR" if left_button_is_qr else "ACNL",
                 relief="flat",
                 bd=0,
-                bg="#22c55e" if has_acnl else "#4b5563",
+                bg="#f59e0b" if (left_button_is_qr and has_qr) else ("#22c55e" if has_acnl else "#4b5563"),
                 fg="#ffffff",
-                activebackground="#16a34a",
+                activebackground="#d97706" if left_button_is_qr else "#16a34a",
                 activeforeground="#ffffff",
                 font=("Microsoft YaHei UI", 8, "bold"),
                 padx=6,
                 pady=3,
-                cursor="hand2" if has_acnl else "arrow",
-                command=(lambda selected_entry=entry: self.download_pattern_acnl_async(selected_entry)) if has_acnl else None,
+                cursor="hand2" if (has_qr if left_button_is_qr else has_acnl) else "arrow",
+                command=(lambda selected_entry=entry: self.export_pattern_qr_async(selected_entry)) if left_button_is_qr and has_qr else ((lambda selected_entry=entry: self.download_pattern_acnl_async(selected_entry)) if has_acnl else None),
             )
-            acnl_button.grid(row=0, column=0, sticky="ew", padx=(0, 4))
+            primary_button.grid(row=0, column=0, sticky="ew", padx=(0, 4))
 
             nhd_button = tk.Button(
                 format_row,
@@ -1575,7 +1582,7 @@ class OfflineAssistantApp:
             )
             nhd_button.grid(row=0, column=1, sticky="ew", padx=(4, 0))
 
-            for widget in (card, preview_label, title_label, format_row, acnl_button, nhd_button):
+            for widget in (card, preview_label, title_label, format_row, primary_button, nhd_button):
                 self.bind_pattern_scroll(widget)
 
             for widget in (card, title_label):
@@ -1583,6 +1590,12 @@ class OfflineAssistantApp:
             preview_label.bind("<Button-1>", lambda _event, selected_entry=entry: self.export_pattern_default_async(selected_entry))
             preview_label.bind("<Double-Button-1>", lambda _event, selected_entry=entry: self.open_selected_pattern_preview_for_entry(selected_entry))
             self.pattern_card_widgets.append(card)
+
+        spacer_row = (len(self.pattern_visible_entries) + columns - 1) // columns
+        bottom_spacer = tk.Frame(self.pattern_grid_frame, bg="#241b38", height=92)
+        bottom_spacer.grid(row=spacer_row, column=0, columnspan=columns, sticky="ew")
+        bottom_spacer.grid_propagate(False)
+        self.pattern_card_widgets.append(bottom_spacer)
 
         if self.pattern_visible_entries:
             self.select_pattern_entry(self.pattern_visible_entries[0])
@@ -1613,7 +1626,7 @@ class OfflineAssistantApp:
         if entry.nhd_rel_path or entry.nhd_url:
             details.append("可下载 NHD/NHPD 文件")
         if entry.qr_rel_path or entry.qr_url:
-            details.append("可查看 QR 图")
+            details.append("可导出 QR 图")
         if entry.source_type:
             details.append(f"来源类型：{entry.source_type}")
         if entry.source_url:
@@ -1660,6 +1673,17 @@ class OfflineAssistantApp:
         self.status_var.set(f"正在准备导出 NHD：{selected_entry.title}")
         self._run_pattern_task("export-pattern-default", lambda: self.pattern_repository.prepare_export_file(selected_entry.id, "nhd"))
 
+    def export_pattern_qr_async(self, entry: PatternEntry | None = None) -> None:
+        if self.pattern_repository is None:
+            return
+        selected_entry = entry or self.selected_pattern_entry
+        if selected_entry is None:
+            if not self.pattern_visible_entries:
+                return
+            selected_entry = self.pattern_visible_entries[0]
+        self.status_var.set(f"正在准备导出 QR：{selected_entry.title}")
+        self._run_pattern_task("export-pattern-default", lambda: self.pattern_repository.prepare_qr_file(selected_entry.id))
+
     def open_selected_pattern_preview_for_entry(self, entry: PatternEntry) -> None:
         self.selected_pattern_entry = entry
         self.open_selected_pattern_preview()
@@ -1676,16 +1700,27 @@ class OfflineAssistantApp:
         self._run_pattern_task("download-pattern-acnl", lambda: self.pattern_repository.download_pattern_acnl(selected_entry.id))
 
     def save_exported_pattern_file(self, entry: PatternEntry, source_path: Path, suffix: str) -> None:
-        default_name = f"{entry.title or 'pattern'}{suffix}"
-        save_path = filedialog.asksaveasfilename(
-            title="另存设计图文件",
-            initialfile=default_name,
-            defaultextension=suffix,
-            filetypes=(
+        if suffix == ".png":
+            default_name = f"{entry.title or 'pattern'}_QR{suffix}"
+            dialog_title = "另存 QR 图片"
+            filetypes = (
+                ("QR 图片", "*.png"),
+                ("所有文件", "*.*"),
+            )
+        else:
+            default_name = f"{entry.title or 'pattern'}{suffix}"
+            dialog_title = "另存设计图文件"
+            filetypes = (
                 ("ACNL 文件", "*.acnl"),
                 ("NHD/NHPD 文件", "*.nhd *.nhpd"),
+                ("QR 图片", "*.png"),
                 ("所有文件", "*.*"),
-            ),
+            )
+        save_path = filedialog.asksaveasfilename(
+            title=dialog_title,
+            initialfile=default_name,
+            defaultextension=suffix,
+            filetypes=filetypes,
         )
         if not save_path:
             self.status_var.set("已取消导出")
