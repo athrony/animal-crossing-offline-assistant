@@ -674,7 +674,7 @@ class OfflineAssistantApp:
         content = tk.Frame(shell, bg="#30264b")
         content.grid(row=0, column=1, sticky="nsew")
         content.columnconfigure(0, weight=1)
-        content.rowconfigure(2, weight=1)
+        content.rowconfigure(3, weight=1)
 
         header = tk.Frame(content, bg="#30264b")
         header.grid(row=0, column=0, sticky="ew", padx=20, pady=(18, 10))
@@ -703,7 +703,7 @@ class OfflineAssistantApp:
             tk.Label(card, textvariable=self.stat_values[i], fg="#ffffff", bg="#3a2f5a", font=("Microsoft YaHei UI", 17, "bold")).grid(row=1, column=0, sticky="w", padx=14, pady=(0, 10))
 
         content_card = tk.Frame(content, bg="#2d2344", highlightthickness=1, highlightbackground="#4a3a72")
-        content_card.grid(row=3, column=0, sticky="nsew", padx=20, pady=(0, 20))
+        content_card.grid(row=3, column=0, sticky="nsew", padx=20, pady=(0, 8))
         content_card.columnconfigure(0, weight=1)
         content_card.rowconfigure(0, weight=1)
 
@@ -1590,12 +1590,6 @@ class OfflineAssistantApp:
             preview_label.bind("<Button-1>", lambda _event, selected_entry=entry: self.export_pattern_default_async(selected_entry))
             preview_label.bind("<Double-Button-1>", lambda _event, selected_entry=entry: self.open_selected_pattern_preview_for_entry(selected_entry))
             self.pattern_card_widgets.append(card)
-
-        spacer_row = (len(self.pattern_visible_entries) + columns - 1) // columns
-        bottom_spacer = tk.Frame(self.pattern_grid_frame, bg="#241b38", height=92)
-        bottom_spacer.grid(row=spacer_row, column=0, columnspan=columns, sticky="ew")
-        bottom_spacer.grid_propagate(False)
-        self.pattern_card_widgets.append(bottom_spacer)
 
         if self.pattern_visible_entries:
             self.select_pattern_entry(self.pattern_visible_entries[0])
