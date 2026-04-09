@@ -1744,8 +1744,7 @@ class OfflineAssistantApp:
             has_nhd = pattern_has_nhd(entry)
             has_qr = qr_path is not None or bool(preview_entry.qr_url)
             has_preview_png = preview_path is not None or pattern_has_preview_image(preview_entry)
-            left_button_is_qr = collection == "pro"
-            left_button_is_png = left_button_is_qr and not has_qr and has_preview_png
+            is_pro_pattern = collection == "pro"
 
             preview_label = tk.Label(card, image=image, text=self.translate_static_text("暂无预览") if image is None else "", compound="top", bg="#2f2448", fg="#f5ecff", cursor="hand2")
             preview_label.grid(row=0, column=0, padx=10, pady=(10, 6))
@@ -1759,18 +1758,18 @@ class OfflineAssistantApp:
 
             primary_button = tk.Button(
                 format_row,
-                text="QR" if left_button_is_qr and has_qr else ("PNG" if left_button_is_png else "ACNL"),
+                text="PNG" if is_pro_pattern else "ACNL",
                 relief="flat",
                 bd=0,
-                bg="#f59e0b" if (left_button_is_qr and has_qr) else ("#f97316" if left_button_is_png else ("#22c55e" if has_acnl else "#4b5563")),
+                bg="#f97316" if is_pro_pattern and has_preview_png else ("#22c55e" if has_acnl else "#4b5563"),
                 fg="#ffffff",
-                activebackground="#d97706" if (left_button_is_qr and has_qr) else ("#ea580c" if left_button_is_png else "#16a34a"),
+                activebackground="#ea580c" if is_pro_pattern else "#16a34a",
                 activeforeground="#ffffff",
                 font=("Microsoft YaHei UI", 8, "bold"),
                 padx=6,
                 pady=3,
-                cursor="hand2" if ((has_qr or has_preview_png) if left_button_is_qr else has_acnl) else "arrow",
-                command=(lambda selected_entry=entry: self.export_pattern_qr_async(selected_entry)) if left_button_is_qr and (has_qr or has_preview_png) else ((lambda selected_entry=entry: self.download_pattern_acnl_async(selected_entry)) if has_acnl else None),
+                cursor="hand2" if (has_preview_png if is_pro_pattern else has_acnl) else "arrow",
+                command=(lambda selected_entry=entry: self.export_pattern_preview_async(selected_entry)) if is_pro_pattern and has_preview_png else ((lambda selected_entry=entry: self.download_pattern_acnl_async(selected_entry)) if has_acnl else None),
             )
             primary_button.grid(row=0, column=0, sticky="ew", padx=(0, 4))
 
@@ -1818,6 +1817,7 @@ class OfflineAssistantApp:
 
     def update_pattern_detail(self, entry: PatternEntry) -> None:
         en = self.current_language_code() == "en"
+        collection = get_pattern_collection(entry)
         self.pattern_title_var.set(entry.title or "-")
         self.pattern_creator_var.set(f"{'Author' if en else '作者'}: {entry.creator or 'Unknown'}")
         self.pattern_type_var.set(f"{'Type' if en else '类型'}: {entry.pattern_type or '-'}")
@@ -1832,7 +1832,9 @@ class OfflineAssistantApp:
             details.append("ACNL export available" if en else "可下载 ACNL 文件")
         if entry.nhd_rel_path or entry.nhd_url:
             details.append("NHD/NHPD export available" if en else "可下载 NHD/NHPD 文件")
-        if qr_path is not None or entry.qr_url:
+        if collection == "pro" and (preview_path is not None or entry.preview_url):
+            details.append("PNG preview export available" if en else "可导出 PNG 预览图")
+        elif qr_path is not None or entry.qr_url:
             details.append("QR image export available" if en else "可导出 QR 图")
         elif preview_path is not None or entry.preview_url:
             details.append("PNG preview export available" if en else "可导出 PNG 预览图")
@@ -1890,6 +1892,17 @@ class OfflineAssistantApp:
             selected_entry = self.pattern_visible_entries[0]
         self.status_var.set(f"正在准备导出图片：{selected_entry.title}")
         self._run_pattern_task("export-pattern-default", lambda: self.pattern_repository.prepare_qr_file(selected_entry.id))
+
+    def export_pattern_preview_async(self, entry: PatternEntry | None = None) -> None:
+        if self.pattern_repository is None:
+            return
+        selected_entry = entry or self.selected_pattern_entry
+        if selected_entry is None:
+            if not self.pattern_visible_entries:
+                return
+            selected_entry = self.pattern_visible_entries[0]
+        self.status_var.set(f"正在准备导出 PNG：{selected_entry.title}")
+        self._run_pattern_task("export-pattern-default", lambda: self.pattern_repository.prepare_preview_file(selected_entry.id))
 
     def open_selected_pattern_preview_for_entry(self, entry: PatternEntry) -> None:
         self.selected_pattern_entry = entry

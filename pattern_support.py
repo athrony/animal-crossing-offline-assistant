@@ -560,6 +560,13 @@ class PatternRepository:
 
         raise ValueError("This pattern does not provide a QR or PNG image.")
 
+    def prepare_preview_file(self, entry_id: int) -> tuple[PatternEntry, Path, str]:
+        entry = self.ensure_preview_cached(entry_id)
+        preview_path = self.image_path(entry.preview_rel_path)
+        if preview_path is not None:
+            return entry, preview_path, ".png"
+        raise ValueError("This pattern does not provide a PNG preview image.")
+
     def import_pattern_files(self, file_paths: Iterable[Path]) -> int:
         inserted = 0
         with self._connect() as connection:
