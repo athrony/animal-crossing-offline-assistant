@@ -248,6 +248,7 @@ def insert_items(
     nhse_item_en: list[str],
     nhse_item_zhs: list[str],
     item_icon_map: dict[int, str],
+    existing_item_image_map: dict[int, str],
 ) -> tuple[int, dict[str, dict[str, str]]]:
     inserted = 0
     item_name_index: dict[str, dict[str, str]] = {}
@@ -268,6 +269,8 @@ def insert_items(
         image_rel_path = None
         if item_id in item_icon_map:
             image_rel_path = f"{IMAGES_DIRNAME}/nhse_menu/{item_icon_map[item_id]}"
+        elif item_id in existing_item_image_map:
+            image_rel_path = existing_item_image_map[item_id]
         connection.execute(
             """
             INSERT INTO items (item_id, english, chinese, item_kind_code, item_kind, category_zh, image_rel_path)
@@ -470,6 +473,30 @@ def load_payload_from_existing_db(db_path: Path) -> dict[str, object]:
         connection.close()
 
 
+def load_item_image_map_from_existing_db(db_path: Path) -> dict[int, str]:
+    if not db_path.exists():
+        return {}
+
+    connection = sqlite3.connect(db_path)
+    connection.row_factory = sqlite3.Row
+    try:
+        columns = {row["name"] for row in connection.execute("PRAGMA table_info(items)")}
+        if "image_rel_path" not in columns:
+            return {}
+        return {
+            int(row["item_id"]): row["image_rel_path"]
+            for row in connection.execute(
+                """
+                SELECT item_id, COALESCE(image_rel_path, '') AS image_rel_path
+                FROM items
+                WHERE image_rel_path IS NOT NULL AND TRIM(image_rel_path) <> ''
+                """
+            )
+        }
+    finally:
+        connection.close()
+
+
 def build_database(
     *,
     csv_path: Path,
@@ -483,6 +510,7 @@ def build_database(
     database_path = output_dir / DATABASE_FILENAME
     payload_seed_path = seed_db_path if seed_db_path is not None and seed_db_path.exists() else database_path
     existing_payload = load_payload_from_existing_db(payload_seed_path)
+    existing_item_image_map = load_item_image_map_from_existing_db(payload_seed_path)
     for suffix in ("-wal", "-shm"):
         sidecar = Path(str(database_path) + suffix)
         if sidecar.exists():
@@ -511,7 +539,14 @@ def build_database(
     connection = sqlite3.connect(database_path)
     try:
         create_schema(connection)
-        inserted_items, item_name_index = insert_items(connection, csv_rows, nhse_item_en, nhse_item_zhs, item_icon_map)
+        inserted_items, item_name_index = insert_items(
+            connection,
+            csv_rows,
+            nhse_item_en,
+            nhse_item_zhs,
+            item_icon_map,
+            existing_item_image_map,
+        )
         inserted_entries, inserted_aliases = insert_knowledge(
             connection,
             payload,
