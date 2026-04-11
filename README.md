@@ -25,6 +25,7 @@ Animal Crossing Offline Assistant is a local desktop helper for Animal Crossing:
 - `app.py`：桌面应用主程序
 - `pattern_support.py`：设计图索引、缓存与导出逻辑
 - `tool_support.py`：NHSE、设计图编辑器、本地镜像相关逻辑
+- `plMining.py`：设计图库数据挖掘与统计分析模块
 - `build_database.py`：SQLite 数据库构建脚本
 - `build.ps1`：一键构建数据库并打包 EXE
 - `data/animal_crossing_offline.db`：主数据库
@@ -40,6 +41,16 @@ py -3.11 app.py
 
 ```powershell
 py -3.11 app.py --self-test
+```
+
+设计图库数据挖掘报告：
+
+```powershell
+py -3.11 plMining.py
+py -3.11 plMining.py --report creators
+py -3.11 plMining.py --report types
+py -3.11 plMining.py --report tags
+py -3.11 plMining.py --top 10
 ```
 
 重新打包：
@@ -66,6 +77,7 @@ Important files:
 - `app.py`: desktop application entry point
 - `pattern_support.py`: pattern indexing, cache, and export logic
 - `tool_support.py`: external tool and local mirror integration
+- `plMining.py`: pattern library mining and statistical analysis
 - `build_database.py`: SQLite database builder
 - `build.ps1`: rebuild and package script
 - `data/animal_crossing_offline.db`: main database
@@ -81,6 +93,16 @@ Self-test:
 
 ```powershell
 py -3.11 app.py --self-test
+```
+
+Pattern library mining reports:
+
+```powershell
+py -3.11 plMining.py
+py -3.11 plMining.py --report creators
+py -3.11 plMining.py --report types
+py -3.11 plMining.py --report tags
+py -3.11 plMining.py --top 10
 ```
 
 Package the EXE:
